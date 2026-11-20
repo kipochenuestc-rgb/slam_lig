@@ -11,6 +11,7 @@
 - `start_live_mapping.cmd` 可直接进入实时建图。先启动传感器驱动，使用相同 ROS domain 50；本工程不会启动厂家的硬件驱动。
 - 查看已保存地图：双击 `open_map.cmd`。
 - 单元测试：双击 `test.cmd`。
+- Web 地图：双击 `start_web_viewer.cmd`，代码位于 `web_viewer/`，也可直接运行其中的 `start.cmd`。高德配置为 `web_viewer/config/amap.local.json`，实际密钥与本地地图数据不提交 Git。
 - 保存地图并停止任务：双击 `stop.cmd`。包含主窗口关闭后遗留的后台节点；录制器会正常结束并写出 bag 元数据。
 
 启动窗口中按 Ctrl+C 会停止本次进程。正常播放结束后保存地图并退出；可以用 `open_map.cmd` 查看结果。命令行可用 `--leave-running` 保留节点，但再次启动前需要停止该会话，工程会阻止重复运行。

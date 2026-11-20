@@ -1,0 +1,9 @@
+{
+  "name": "slam-lig-web-viewer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs --open",
+    "check": "node server.mjs --check"
+  }
+}

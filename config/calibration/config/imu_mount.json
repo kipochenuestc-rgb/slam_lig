@@ -1,0 +1,17 @@
+{
+  "schema": "hasco_camera0_imu_mount_v1",
+  "reference_frame": "calib_cam0_optical",
+  "imu_frame": "Imu_qx",
+  "translation_unit": "m",
+  "camera0_origin_in_imu_m": [-0.130, -0.140, 0.0],
+  "camera0_axes_in_imu": {
+    "x": [-1.0, 0.0, 0.0],
+    "y": [0.0, 0.0, -1.0],
+    "z": [0.0, -1.0, 0.0]
+  },
+  "imu_axes": "x forward, y left, z up",
+  "camera0_axes": "optical: x image right, y image down, z lens forward",
+  "confirmed_installation": "camera 0 faces vehicle right, image top faces vehicle up",
+  "measurement_basis": "user measured camera 0 from IMU center: -130 mm X, -140 mm Y, approximately 0 mm Z",
+  "calibration_scope": "measured installation translation and nominal axis alignment; no joint IMU calibration"
+}

@@ -1,0 +1,48 @@
+{
+  "reference_wgs84": [
+    103.9599638,
+    30.657247849999997,
+    464.165
+  ],
+  "ecef_origin": [
+    -1324878.3549244932,
+    5329659.460669904,
+    3233499.7161419545
+  ],
+  "ecef_to_enu": [
+    [
+      -0.9704645355717993,
+      -0.24124382934577168,
+      0.0
+    ],
+    [
+      0.1230105140965897,
+      -0.4948410152372983,
+      0.8602329818488783
+    ],
+    [
+      -0.2075258986707551,
+      0.8348256012135158,
+      0.5099011835045957
+    ]
+  ],
+  "map_to_enu_R_xy": [
+    [
+      0.017034897719693243,
+      0.9998548956021964
+    ],
+    [
+      -0.9998548956021965,
+      0.01703489771969313
+    ]
+  ],
+  "map_to_enu_translation_xy": [
+    -0.028228677073643738,
+    0.4533244145920179
+  ],
+  "map_to_enu_z_offset": 0.017500000997143342,
+  "heading_initialization_window_s": 120,
+  "gnss_constraint_start_s": 1794821549.963175,
+  "covariance_note": "NavSatFix covariance is unknown (all zeros); assumed conservative stddev: horizontal 1 m, vertical 1.5 m; not receiver accuracy",
+  "lever_arm_note": "GNSS antenna-to-lidar lever arm unavailable; not compensated; included in conservative weighting"
+}

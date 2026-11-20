@@ -1,0 +1,18 @@
+/**:
+  ros__parameters:
+    gnss_topic: /gnss/fix_fixed
+    imu_topic: /imu/data
+    odom_topic: /lio_sam/mapping/odometry
+    gnss_output_topic: /lio_gnss/odometry
+    imu_output_topic: /imu/calibrated
+    map_frame: map
+    alignment_mode: online
+    min_alignment_points: 12
+    min_alignment_baseline_m: 15.0
+    max_alignment_rmse_m: 1.5
+    alignment_window_s: 120.0
+    max_odom_gap_s: 1.0
+    unknown_horizontal_std_m: 1.0
+    unknown_vertical_std_m: 1.5
+    max_horizontal_variance_m2: 25.0
+    apply_imu_bias: true

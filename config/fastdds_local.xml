@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <transport_descriptors>
+    <transport_descriptor>
+      <transport_id>loopback_udp</transport_id>
+      <type>UDPv4</type>
+      <interfaceWhiteList><address>10.255.255.254</address></interfaceWhiteList>
+    </transport_descriptor>
+  <transport_descriptor><transport_id>local_shm</transport_id><type>SHM</type><segment_size>67108864</segment_size></transport_descriptor></transport_descriptors>
+  <participant profile_name="local_slam" is_default_profile="true">
+    <rtps>
+      <userTransports><transport_id>loopback_udp</transport_id><transport_id>local_shm</transport_id></userTransports>
+      <useBuiltinTransports>false</useBuiltinTransports>
+      <builtin>
+        <metatrafficUnicastLocatorList><locator><udpv4><address>10.255.255.254</address><port>0</port></udpv4></locator></metatrafficUnicastLocatorList>
+        <initialPeersList><locator><udpv4><address>10.255.255.254</address><port>19910</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>19912</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>19914</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>19916</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>19918</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>19920</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>19922</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>19924</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>19926</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>19928</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>19930</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>19932</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>7000</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>7001</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>7002</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>7003</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>7004</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>7005</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>7006</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>7007</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>7008</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>7009</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>7010</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>7011</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>7012</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>7013</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>7014</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>7015</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>7016</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>7017</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>7018</port></udpv4></locator><locator><udpv4><address>10.255.255.254</address><port>7019</port></udpv4></locator></initialPeersList>
+      </builtin>
+    </rtps>
+  </participant>
+</profiles>

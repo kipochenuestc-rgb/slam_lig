@@ -1,0 +1,828 @@
+{
+  "status": "candidate_not_deployed",
+  "reference_camera": 0,
+  "reference_frame": "calib_cam0_optical",
+  "coordinate_convention": "camera_optical",
+  "camera_axes": {
+    "x": "right",
+    "y": "down",
+    "z": "forward"
+  },
+  "translation_unit": "m",
+  "transform_direction": "p_reference = T_reference_from_sensor @ p_sensor",
+  "cameras": {
+    "0": {
+      "status": "reference_by_definition",
+      "T_reference_from_camera": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "intrinsics_used": {
+        "i2c_address": 102,
+        "physical_camera_id": 0,
+        "model": "fisheye_KB4_full_fov",
+        "image_size": [
+          800,
+          640
+        ],
+        "K": [
+          [
+            201.10109375000002,
+            0.0,
+            401.2173158333334
+          ],
+          [
+            0.0,
+            201.02381625,
+            318.44661083333335
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "D": [
+          0.058711,
+          -0.010836,
+          -0.000235,
+          0.000214
+        ],
+        "native_image_size": [
+          1920,
+          1536
+        ],
+        "native_K": [
+          [
+            482.642625,
+            0.0,
+            962.921558
+          ],
+          [
+            0.0,
+            482.457159,
+            764.271866
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "scale": [
+          0.4166666666666667,
+          0.4166666666666667
+        ],
+        "intrinsics_estimated_in_this_fit": false,
+        "model_confirmed_for_current_project": true,
+        "distortion_coefficient_order": [
+          "k1",
+          "k2",
+          "k3",
+          "k4"
+        ],
+        "model_basis": "用户已确认采用 KB4 鱼眼模型；K、D 来自厂家读回，本次仅求外参。"
+      }
+    },
+    "1": {
+      "status": "candidate",
+      "T_reference_from_camera": [
+        [
+          0.011087693116965123,
+          0.004505770490431409,
+          -0.9999283779819592,
+          -0.4839849644296214
+        ],
+        [
+          -0.0037725741827606195,
+          0.9999829192262244,
+          0.0044641841174609415,
+          0.0028676612169197253
+        ],
+        [
+          0.9999314130206031,
+          0.003722806479872405,
+          0.011104502084012941,
+          -0.23074751078866532
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "intrinsics_used": {
+        "i2c_address": 103,
+        "physical_camera_id": 1,
+        "model": "fisheye_KB4_full_fov",
+        "image_size": [
+          800,
+          640
+        ],
+        "K": [
+          [
+            202.17248916666668,
+            0.0,
+            400.67261833333333
+          ],
+          [
+            0.0,
+            202.14623083333333,
+            319.5687066666667
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "D": [
+          0.057945,
+          -0.011059,
+          0.000188,
+          5e-05
+        ],
+        "native_image_size": [
+          1920,
+          1536
+        ],
+        "native_K": [
+          [
+            485.213974,
+            0.0,
+            961.614284
+          ],
+          [
+            0.0,
+            485.150954,
+            766.964896
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "scale": [
+          0.4166666666666667,
+          0.4166666666666667
+        ],
+        "intrinsics_estimated_in_this_fit": false,
+        "model_confirmed_for_current_project": true,
+        "distortion_coefficient_order": [
+          "k1",
+          "k2",
+          "k3",
+          "k4"
+        ],
+        "model_basis": "用户已确认采用 KB4 鱼眼模型；K、D 来自厂家读回，本次仅求外参。"
+      }
+    },
+    "2": {
+      "status": "candidate",
+      "T_reference_from_camera": [
+        [
+          -0.9999345839564363,
+          0.011255621270333143,
+          0.0020344035214456438,
+          -0.09507126027380769
+        ],
+        [
+          0.011214726978370532,
+          0.9997545985104557,
+          -0.01910425753592778,
+          -0.002229099424959275
+        ],
+        [
+          -0.0022489345632664575,
+          -0.019080192530927697,
+          -0.9998154272396049,
+          -0.3721670744537209
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "intrinsics_used": {
+        "i2c_address": 100,
+        "physical_camera_id": 2,
+        "model": "fisheye_KB4_full_fov",
+        "image_size": [
+          800,
+          640
+        ],
+        "K": [
+          [
+            201.30220583333335,
+            0.0,
+            401.0333975
+          ],
+          [
+            0.0,
+            201.28145125,
+            319.0756783333333
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "D": [
+          0.057195,
+          -0.010485,
+          -0.000231,
+          0.000216
+        ],
+        "native_image_size": [
+          1920,
+          1536
+        ],
+        "native_K": [
+          [
+            483.125294,
+            0.0,
+            962.480154
+          ],
+          [
+            0.0,
+            483.075483,
+            765.781628
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "scale": [
+          0.4166666666666667,
+          0.4166666666666667
+        ],
+        "intrinsics_estimated_in_this_fit": false,
+        "model_confirmed_for_current_project": true,
+        "distortion_coefficient_order": [
+          "k1",
+          "k2",
+          "k3",
+          "k4"
+        ],
+        "model_basis": "用户已确认采用 KB4 鱼眼模型；K、D 来自厂家读回，本次仅求外参。"
+      }
+    },
+    "3": {
+      "status": "candidate",
+      "T_reference_from_camera": [
+        [
+          0.00011071902821622864,
+          0.011373542502987988,
+          0.999935313043914,
+          0.3936656071397524
+        ],
+        [
+          -0.02065259140872937,
+          0.9997220714612771,
+          -0.011368830251112306,
+          -0.0008438421245331646
+        ],
+        [
+          -0.9997867063576119,
+          -0.020649996709618486,
+          0.0003455813824225361,
+          -0.14054468690319352
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "intrinsics_used": {
+        "i2c_address": 101,
+        "physical_camera_id": 3,
+        "model": "fisheye_KB4_full_fov",
+        "image_size": [
+          800,
+          640
+        ],
+        "K": [
+          [
+            202.35417791666669,
+            0.0,
+            399.3328216666667
+          ],
+          [
+            0.0,
+            202.33447958333335,
+            318.67827
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "D": [
+          0.057044,
+          -0.00987,
+          -0.000618,
+          0.000258
+        ],
+        "native_image_size": [
+          1920,
+          1536
+        ],
+        "native_K": [
+          [
+            485.650027,
+            0.0,
+            958.398772
+          ],
+          [
+            0.0,
+            485.602751,
+            764.827848
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "scale": [
+          0.4166666666666667,
+          0.4166666666666667
+        ],
+        "intrinsics_estimated_in_this_fit": false,
+        "model_confirmed_for_current_project": true,
+        "distortion_coefficient_order": [
+          "k1",
+          "k2",
+          "k3",
+          "k4"
+        ],
+        "model_basis": "用户已确认采用 KB4 鱼眼模型；K、D 来自厂家读回，本次仅求外参。"
+      }
+    }
+  },
+  "lidars": {
+    "0": {
+      "status": "candidate",
+      "lidar_ip": "192.168.225.106",
+      "physical_camera_id": 2,
+      "frame_id": "calib_lidar0_native",
+      "input_topic": "/point_cloud_hasco1",
+      "T_camera_from_lidar": [
+        [
+          -0.0032547679729759693,
+          -0.9999938011169434,
+          -0.0013379044830799103,
+          -0.05425051972270012
+        ],
+        [
+          0.0047937966883182526,
+          0.001322293421253562,
+          -0.9999876618385315,
+          0.017140818759799004
+        ],
+        [
+          0.9999831914901733,
+          -0.0032611414790153503,
+          0.004789463244378567,
+          -0.00889406818896532
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "T_reference_from_lidar": [
+        [
+          0.005342881545057209,
+          0.9999366342351351,
+          -0.009907921733108322,
+          -0.04064945296488899
+        ],
+        [
+          -0.01434781747255176,
+          -0.009830386844434902,
+          -0.9998487667495707,
+          0.014469022754483373
+        ],
+        [
+          -0.9998827686357488,
+          0.005484230570454731,
+          0.014294386736139008,
+          -0.3634796921206675
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "mapping_basis": "operator_confirmed_camera_0_1_2_3_to_lidar_1_2_0_3",
+      "mapping_verification": "operator_confirmed_requires_static_pointcloud_validation",
+      "local_axes": "manufacturer_lidar_coordinate_system"
+    },
+    "1": {
+      "status": "candidate",
+      "lidar_ip": "192.168.225.107",
+      "physical_camera_id": 0,
+      "frame_id": "calib_lidar1_native",
+      "input_topic": "/point_cloud_hasco2",
+      "T_camera_from_lidar": [
+        [
+          -0.0025349482893943787,
+          -0.9999932646751404,
+          -0.002664162078872323,
+          -0.036391399800777435
+        ],
+        [
+          0.003202140098437667,
+          0.002656039781868458,
+          -0.9999913573265076,
+          0.0069189174100756645
+        ],
+        [
+          0.9999916553497314,
+          -0.002543457318097353,
+          0.003195385681465268,
+          -0.014554050751030445
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "T_reference_from_lidar": [
+        [
+          -0.0025349482893943787,
+          -0.9999932646751404,
+          -0.002664162078872323,
+          -0.036391399800777435
+        ],
+        [
+          0.003202140098437667,
+          0.002656039781868458,
+          -0.9999913573265076,
+          0.0069189174100756645
+        ],
+        [
+          0.9999916553497314,
+          -0.002543457318097353,
+          0.003195385681465268,
+          -0.014554050751030445
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "mapping_basis": "operator_confirmed_camera_0_1_2_3_to_lidar_1_2_0_3",
+      "mapping_verification": "operator_confirmed_requires_static_pointcloud_validation",
+      "local_axes": "manufacturer_lidar_coordinate_system"
+    },
+    "2": {
+      "status": "candidate",
+      "lidar_ip": "192.168.225.108",
+      "physical_camera_id": 1,
+      "frame_id": "calib_lidar2_native",
+      "input_topic": "/point_cloud_hasco3",
+      "T_camera_from_lidar": [
+        [
+          -0.011377825401723385,
+          -0.9999286532402039,
+          0.0036363457329571247,
+          0.055653106421232224
+        ],
+        [
+          -0.0003256812924519181,
+          -0.00363287515938282,
+          -0.9999933242797852,
+          0.004646862391382456
+        ],
+        [
+          0.9999352097511292,
+          -0.011378933675587177,
+          -0.0002843238471541554,
+          0.013086550869047642
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "T_reference_from_lidar": [
+        [
+          -0.9999912136550463,
+          0.00027484774571799874,
+          -0.004181118242307604,
+          -0.496432575753046
+        ],
+        [
+          0.004181142842664027,
+          8.869425976432355e-05,
+          -0.9999912312780704,
+          0.007362909536363685
+        ],
+        [
+          -0.0002744748589135566,
+          -0.999999953038164,
+          -8.984257522393132e-05,
+          -0.174935602445077
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "mapping_basis": "operator_confirmed_camera_0_1_2_3_to_lidar_1_2_0_3",
+      "mapping_verification": "operator_confirmed_requires_static_pointcloud_validation",
+      "local_axes": "manufacturer_lidar_coordinate_system"
+    },
+    "3": {
+      "status": "candidate",
+      "lidar_ip": "192.168.225.109",
+      "physical_camera_id": 3,
+      "frame_id": "calib_lidar3_native",
+      "input_topic": "/point_cloud_hasco4",
+      "T_camera_from_lidar": [
+        [
+          -0.0018057317938655615,
+          -0.9999974966049194,
+          -0.0013435903238132596,
+          0.05031228065490723
+        ],
+        [
+          -0.002716816496104002,
+          0.0013484933879226446,
+          -0.9999954104423523,
+          0.008189449086785316
+        ],
+        [
+          0.999994695186615,
+          -0.0018020732095465064,
+          -0.002719244686886668,
+          0.006931058131158352
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "T_reference_from_lidar": [
+        [
+          0.9998989088169206,
+          -0.0018973382430961584,
+          -0.014092707851699008,
+          0.40069493049594385
+        ],
+        [
+          -0.014047538315922222,
+          0.02202114577467891,
+          -0.9996588199259635,
+          0.006225453882073666
+        ],
+        [
+          0.0022070284436370496,
+          0.999755734349515,
+          0.021992265959469338,
+          -0.1910129531205481
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "mapping_basis": "operator_confirmed_camera_0_1_2_3_to_lidar_1_2_0_3",
+      "mapping_verification": "operator_confirmed_requires_static_pointcloud_validation",
+      "local_axes": "manufacturer_lidar_coordinate_system"
+    }
+  },
+  "pair_sources": [
+    "/home/k/Inspection vehicle/Hasco/calibration_data/rig_C_01/results/pair_0_1/pair_0_1.json",
+    "/home/k/Inspection vehicle/Hasco/calibration_data/rig_C_01/results/pair_1_2/pair_1_2.json",
+    "/home/k/Inspection vehicle/Hasco/calibration_data/rig_C_01/results/pair_2_3/pair_2_3.json"
+  ],
+  "pair_metrics": [
+    {
+      "from_camera": 0,
+      "to_camera": 1,
+      "training_rms_px": 0.7371122225840845,
+      "heldout": {
+        "second_camera_median_px": 0.5670601948410464,
+        "second_camera_p95_px": 1.8049340656440844,
+        "second_camera_rms_px": 0.8977603145079611
+      },
+      "baseline_m": 0.5361847470881301,
+      "training_poses": 32,
+      "heldout_poses": 9,
+      "stability": {
+        "relative_to_fold_0": [
+          {
+            "fold": 0,
+            "translation_delta_m": 0.0,
+            "rotation_delta_deg": 0.0
+          },
+          {
+            "fold": 1,
+            "translation_delta_m": 0.0017945365847545339,
+            "rotation_delta_deg": 0.12233461747150963
+          },
+          {
+            "fold": 2,
+            "translation_delta_m": 0.0015606129952724166,
+            "rotation_delta_deg": 0.10289607063003794
+          },
+          {
+            "fold": 3,
+            "translation_delta_m": 0.0019327680085233004,
+            "rotation_delta_deg": 0.13496564292683075
+          },
+          {
+            "fold": 4,
+            "translation_delta_m": 0.0014532528533996159,
+            "rotation_delta_deg": 0.09746461038198793
+          }
+        ],
+        "max_translation_delta_m": 0.0019327680085233004,
+        "max_rotation_delta_deg": 0.13496564292683075,
+        "interpretation": "同一批数据不同划分的敏感性，不是绝对精度或置信区间。"
+      }
+    },
+    {
+      "from_camera": 1,
+      "to_camera": 2,
+      "training_rms_px": 0.8955217898831512,
+      "heldout": {
+        "second_camera_median_px": 0.6503729133265223,
+        "second_camera_p95_px": 1.7453907251266692,
+        "second_camera_rms_px": 0.9288127409843763
+      },
+      "baseline_m": 0.4138590813748697,
+      "training_poses": 33,
+      "heldout_poses": 9,
+      "stability": {
+        "relative_to_fold_0": [
+          {
+            "fold": 0,
+            "translation_delta_m": 0.0,
+            "rotation_delta_deg": 0.0
+          },
+          {
+            "fold": 1,
+            "translation_delta_m": 0.0009697751037292068,
+            "rotation_delta_deg": 0.06529585492842586
+          },
+          {
+            "fold": 2,
+            "translation_delta_m": 0.0004974221655530293,
+            "rotation_delta_deg": 0.021360355533426433
+          },
+          {
+            "fold": 3,
+            "translation_delta_m": 0.00043577255923786003,
+            "rotation_delta_deg": 0.04232506692362945
+          },
+          {
+            "fold": 4,
+            "translation_delta_m": 0.00030131984350457704,
+            "rotation_delta_deg": 0.017379153716972982
+          }
+        ],
+        "max_translation_delta_m": 0.0009697751037292068,
+        "max_rotation_delta_deg": 0.06529585492842586,
+        "interpretation": "同一批数据不同划分的敏感性，不是绝对精度或置信区间。"
+      }
+    },
+    {
+      "from_camera": 2,
+      "to_camera": 3,
+      "training_rms_px": 0.7683146779648832,
+      "heldout": {
+        "second_camera_median_px": 0.6842549917726894,
+        "second_camera_p95_px": 2.5142850771111007,
+        "second_camera_rms_px": 1.2255506381547627
+      },
+      "baseline_m": 0.5408461656715471,
+      "training_poses": 32,
+      "heldout_poses": 8,
+      "stability": {
+        "relative_to_fold_0": [
+          {
+            "fold": 0,
+            "translation_delta_m": 0.0,
+            "rotation_delta_deg": 0.0
+          },
+          {
+            "fold": 1,
+            "translation_delta_m": 0.0005022490988256567,
+            "rotation_delta_deg": 0.032289332888790837
+          },
+          {
+            "fold": 2,
+            "translation_delta_m": 0.0002783075584832166,
+            "rotation_delta_deg": 0.015730406250606087
+          },
+          {
+            "fold": 3,
+            "translation_delta_m": 0.000788803030467154,
+            "rotation_delta_deg": 0.05173587855039733
+          },
+          {
+            "fold": 4,
+            "translation_delta_m": 0.00032722276836172175,
+            "rotation_delta_deg": 0.028737581698973245
+          }
+        ],
+        "max_translation_delta_m": 0.000788803030467154,
+        "max_rotation_delta_deg": 0.05173587855039733,
+        "interpretation": "同一批数据不同划分的敏感性，不是绝对精度或置信区间。"
+      }
+    }
+  ],
+  "validation_warnings": [
+    "用户已确认 KB4 模型及四项系数顺序；本次固定厂家 K、D，仅拟合相机外参。",
+    "五折稳定性来自同一批数据，需另采独立验证图；候选结果未部署。"
+  ],
+  "display_warning": "按 KB4 鱼眼模型固定厂家内参；候选值需独立验证。",
+  "edge_consistency": [
+    {
+      "from_camera": 0,
+      "to_camera": 1,
+      "translation_residual_m": 0.0,
+      "rotation_residual_deg": 0.0
+    },
+    {
+      "from_camera": 1,
+      "to_camera": 2,
+      "translation_residual_m": 1.688328033686452e-16,
+      "rotation_residual_deg": 0.0
+    },
+    {
+      "from_camera": 2,
+      "to_camera": 3,
+      "translation_residual_m": 5.551284527130373e-17,
+      "rotation_residual_deg": 0.0
+    }
+  ],
+  "lidar_composition": {
+    "formula": "T_camera0_from_lidar_k = T_camera0_from_camera_j @ T_camera_j_from_lidar_k",
+    "stage": "pairing_corrected_requires_static_pointcloud_validation",
+    "raw_driver_required": {
+      "tf_mode": false,
+      "if_use_merged_topic_name": false,
+      "if_multi": false
+    },
+    "motion_compensation": false,
+    "camera_to_original_lidar_id": {
+      "0": 1,
+      "1": 2,
+      "2": 0,
+      "3": 3
+    }
+  }
+}

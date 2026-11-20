@@ -1,0 +1,24 @@
+{
+  "samples": 4368,
+  "stationary_window_s": 40,
+  "start_s": 1794821429.300021,
+  "gyro_bias_rad_s": [
+    0.014088762823574755,
+    -0.019662420644639085,
+    -0.018024128663712623
+  ],
+  "accel_bias_m_s2": [
+    -0.0006196528824445631,
+    -0.001026209463447981,
+    0.15788100243716832
+  ],
+  "std": [
+    0.0020253182438496604,
+    0.002138086430024756,
+    0.0008605858802246681,
+    0.06763333538199477,
+    0.012234271197933922,
+    0.022168459101913385
+  ],
+  "basis": "First 40 s confirmed stationary using wheel speed and GNSS; subtract constant residual bias before LIO-SAM. Gravity derived from existing filtered quaternion; not a complete IMU calibration."
+}

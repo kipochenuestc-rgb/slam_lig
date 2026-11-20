@@ -1,0 +1,12 @@
+# live: real sensor topics -> online SLAM
+# record: record raw sensor topics only
+# replay: recorded bag -> online processing -> map
+mode: replay
+record_topics:
+  - /point_cloud_hasco1
+  - /point_cloud_hasco2
+  - /point_cloud_hasco3
+  - /point_cloud_hasco4
+  - /imu/data
+  - /gnss/fix_fixed
+  - /tf_static

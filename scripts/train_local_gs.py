@@ -10,12 +10,12 @@ C0=0.28209479177387814
 
 
 def export_gaussians(path,means,quats,log_scales,opacity,sh):
-    # Standard Graphdeco PLY layout, with SH1 padded to the SH3 field layout.
-    xyz=means.detach().cpu().numpy();q=torch.nn.functional.normalize(quats,dim=-1).detach().cpu().numpy();s=log_scales.detach().cpu().numpy();o=opacity.detach().cpu().numpy();coeff=sh.detach().cpu().numpy();rest=np.zeros((len(xyz),15,3),np.float32);rest[:,:3]=coeff[:,1:]
+    # Standard Graphdeco PLY layout, with lower SH degrees padded to SH3.
+    xyz=means.detach().cpu().numpy();q=torch.nn.functional.normalize(quats,dim=-1).detach().cpu().numpy();s=log_scales.detach().cpu().numpy();o=opacity.detach().cpu().numpy();coeff=sh.detach().cpu().numpy();rest=np.zeros((len(xyz),15,3),np.float32);rest[:,:coeff.shape[1]-1]=coeff[:,1:]
     fields=['x','y','z','nx','ny','nz']+[f'f_dc_{i}' for i in range(3)]+[f'f_rest_{i}' for i in range(45)]+['opacity']+[f'scale_{i}' for i in range(3)]+[f'rot_{i}' for i in range(4)]
     a=np.empty(len(xyz),dtype=[(k,'<f4') for k in fields]);values=np.column_stack([xyz,np.zeros_like(xyz),coeff[:,0],rest.transpose(0,2,1).reshape(len(xyz),-1),o,s,q])
     for j,k in enumerate(fields):a[k]=values[:,j]
-    with path.open('wb') as f:f.write(('ply\nformat binary_little_endian 1.0\ncomment trained LiDAR-initialized 3DGS; SH1 padded to SH3\nelement vertex '+str(len(xyz))+'\n'+''.join('property float '+k+'\n' for k in fields)+'end_header\n').encode());f.write(a.tobytes())
+    with path.open('wb') as f:f.write(('ply\nformat binary_little_endian 1.0\ncomment trained LiDAR-initialized 3DGS; SH3 field layout\nelement vertex '+str(len(xyz))+'\n'+''.join('property float '+k+'\n' for k in fields)+'end_header\n').encode());f.write(a.tobytes())
 
 
 def main():

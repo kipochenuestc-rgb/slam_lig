@@ -180,3 +180,79 @@ bash /mnt/d/slam/slam_lig/scripts/gs_env.sh \
 PYTHONPATH=/mnt/d/slam/slam_lig/scripts python3 -m unittest discover \
   -s /mnt/d/slam/slam_lig/tests -p test_rgb_core.py
 ```
+
+
+### 清晰度修正版（自适应增密）
+
+首版固定点数、MSE 为主的训练容易形成大块模糊。`refine_local_gs.py` 使用 gsplat 的梯度增密策略，按图像梯度复制/分裂高斯、清理低透明度点；`CappedStrategy` 限制新增数量，避免突破显存预算。使用 L1 + 高斯窗口 SSIM，逐步启用到三阶球谐，并衰减位置学习率。与初版比较时保留同一组图像和整时刻验证划分。
+
+当前局部片段建议重新导出，扩大到 80 米并使用 0.07 米体素，补充远处建筑几何：
+
+```bash
+bash /mnt/d/slam/slam_lig/scripts/ros_env.sh python3 \
+  /mnt/d/slam/slam_lig/scripts/export_rgb_scene.py \
+  --bag /mnt/d/slam/session_20261124_100923_5cbed2/bag \
+  --run /mnt/d/slam/slam_lig/runs/new_data_20261124_gnss_buffered \
+  --output /mnt/d/slam/slam_lig/runs/rgb_gs_wide \
+  --start 275 --duration 20 --sample-period 0.5 --max-range 80 --voxel 0.07
+bash /mnt/d/slam/slam_lig/scripts/gs_env.sh \
+  /mnt/d/slam/slam_lig/scripts/refine_local_gs.py \
+  --scene /mnt/d/slam/slam_lig/runs/rgb_gs_wide \
+  --output /mnt/d/slam/slam_lig/runs/gs_adaptive_v2 \
+  --steps 18000 --initial-points 160000 --point-cap 600000 --mask-people
+```
+
+`--mask-people` 使用现有 torchvision 0.23 的 LR-ASPP MobileNetV3 预训练语义分割，首次下载约 12.5 MB 官方权重，仅屏蔽人物并适度膨胀边缘。不会把所有自行车和车辆当作动态物体删除。掩码保存在输出的 `person_masks/`；L1 与 SSIM 均忽略人物，SSIM 只统计完整有效窗口。验证指标仍使用完整原图，不能将人物掩码后的指标与旧版完整图指标混比。
+
+默认开启相机位姿微调：SLAM 为初值，仅训练图像的相机局部平移/旋转参与优化；验证时从相邻训练时刻插值得到修正，不优化验证图像。平移每轴最多 ±0.15 米、旋转向量每分量最多 ±0.035 弧度，带正则约束。`--no-pose-opt` 可关闭。修正只用于外观重建，不改 SLAM 地图，也不能视为独立外参重标定。
+
+`best.pt` 包含优化器、增密状态和最佳迭代，可用 `--resume /path/to/best.pt` 接续同一场景（新输出目录、`--steps` 大于原迭代）；`gaussians.ply` 为选中的三阶球谐模型，`refined_cameras.json` 保留修正位姿。没有显式天空几何，动态人物遮挡后的背景仍可能不完整。
+
+同相机比较旧版和新版，并生成动态预览：
+
+```bash
+bash /mnt/d/slam/slam_lig/scripts/gs_env.sh \
+  /mnt/d/slam/slam_lig/scripts/compare_local_gs.py \
+  --scene /mnt/d/slam/slam_lig/runs/rgb_gs_wide \
+  --baseline /mnt/d/slam/slam_lig/runs/gs_local_v3/model.pt \
+  --refined /mnt/d/slam/slam_lig/runs/gs_adaptive_v2/best.pt \
+  --output /mnt/d/slam/slam_lig/runs/gs_adaptive_comparison --animation
+```
+
+三栏依次为原图、旧模型、新模型。`comparison.json` 记录同一批验证视角的完整图 PSNR/SSIM。`--animation` 沿物理相机 1 的修正轨迹插值，并加入 0.1 米侧移，生成 `flythrough.gif`。
+
+训练相关检查在 3DGS 环境执行：
+
+```bash
+PYTHONPATH=/mnt/d/slam/slam_lig/scripts bash /mnt/d/slam/slam_lig/scripts/gs_env.sh \
+  -m unittest discover -s /mnt/d/slam/slam_lig/tests -p test_gs_training.py
+```
+
+
+若楼顶等区域超出雷达覆盖，可用训练图像补充三角化几何，再接续已有模型：
+
+```bash
+bash /mnt/d/slam/slam_lig/scripts/gs_env.sh \
+  /mnt/d/slam/slam_lig/scripts/triangulate_scene_features.py \
+  --scene /mnt/d/slam/slam_lig/runs/rgb_gs_wide \
+  --checkpoint /mnt/d/slam/slam_lig/runs/gs_adaptive_v2/best.pt \
+  --masks /mnt/d/slam/slam_lig/runs/gs_adaptive_v2/person_masks \
+  --output /mnt/d/slam/slam_lig/runs/rgb_gs_wide/feature_points.npz
+bash /mnt/d/slam/slam_lig/scripts/gs_env.sh \
+  /mnt/d/slam/slam_lig/scripts/refine_local_gs.py \
+  --scene /mnt/d/slam/slam_lig/runs/rgb_gs_wide \
+  --output /mnt/d/slam/slam_lig/runs/gs_adaptive_v3 \
+  --resume /mnt/d/slam/slam_lig/runs/gs_adaptive_v2/best.pt \
+  --feature-points /mnt/d/slam/slam_lig/runs/rgb_gs_wide/feature_points.npz \
+  --mask-dir /mnt/d/slam/slam_lig/runs/gs_adaptive_v2/person_masks \
+  --steps 18000 --initial-points 160000 --point-cap 600000
+```
+
+图像补点仅使用训练图像的 SIFT 匹配，排除人物，按相机位姿三角化，要求两视角正深度、至少 1 度视差、最大重投影误差小于 1.2 像素，并与已有测量点保持至少 0.1 米间隔。它们保存在独立的 `feature_points.npz`，是图像估计几何，不属于雷达测量；不会改写 `rgb_map.ply`。补点时保留原高斯的 Adam 状态，只为新增点初始化状态，恢复训练后继续增密。`--mask-dir` 复用已有掩码。比较最新版时将上面的 `--refined` 改为 `gs_adaptive_v3/best.pt`。
+
+参考：[gsplat 官方训练示例](https://github.com/nerfstudio-project/gsplat/blob/v1.5.3/examples/simple_trainer.py)、[torchvision LR-ASPP 权重与预处理](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.segmentation.lraspp_mobilenet_v3_large.html)。本项目使用已有 SLAM/候选外参作为初值，不是完整 COLMAP 重建或厂家标定验证。
+
+
+自适应训练默认在 4 次连续验证检查没有改善时提前停止（`--patience 0` 关闭）。可用 `--resume /path/to/best.pt --export-only` 在新目录直接导出最佳检查点，不继续优化。模型目录的 `scene_metadata.json` 保存原始 map 原点与标定来源，恢复原坐标时给局部点加回 `scene_origin_map_m`。
+
+本次交付模型在 `runs/gs_adaptive_final/`，最终对比和动画在 `runs/gs_adaptive_comparison_final/`。尝试至 10,000 次后验证指标连续回落，保留第 6,000 次、412,818 个高斯点的模型；同一批完整验证图像 PSNR 从旧版 16.80 提升到 20.93 dB。楼顶和窗框改善明显，近处路面、树木和遮挡区域仍有模糊/漂浮伪影，尚未达到照片级重建。

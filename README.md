@@ -256,3 +256,20 @@ bash /mnt/d/slam/slam_lig/scripts/gs_env.sh \
 自适应训练默认在 4 次连续验证检查没有改善时提前停止（`--patience 0` 关闭）。可用 `--resume /path/to/best.pt --export-only` 在新目录直接导出最佳检查点，不继续优化。模型目录的 `scene_metadata.json` 保存原始 map 原点与标定来源，恢复原坐标时给局部点加回 `scene_origin_map_m`。
 
 本次交付模型在 `runs/gs_adaptive_final/`，最终对比和动画在 `runs/gs_adaptive_comparison_final/`。尝试至 10,000 次后验证指标连续回落，保留第 6,000 次、412,818 个高斯点的模型；同一批完整验证图像 PSNR 从旧版 16.80 提升到 20.93 dB。楼顶和窗框改善明显，近处路面、树木和遮挡区域仍有模糊/漂浮伪影，尚未达到照片级重建。
+
+
+### 漂浮脏点诊断（尚非最终质量）
+
+`clean_local_gs.py` 将高斯中心投影到训练相机，用累积雷达地图的低分辨率深度检查自由空间冲突，同时统计人物掩码关联。默认 `balanced` 模式清理低透明度点、人物关联的近场点，以及缺少深度观测且远离雷达/图像几何支撑的大高斯。`strict` 模式可能误删稀疏建筑，不建议直接作为交付模型。
+
+```bash
+bash /mnt/d/slam/slam_lig/scripts/gs_env.sh \
+  /mnt/d/slam/slam_lig/scripts/clean_local_gs.py \
+  --checkpoint /mnt/d/slam/slam_lig/runs/gs_adaptive_final/best.pt \
+  --masks /mnt/d/slam/slam_lig/runs/gs_adaptive_v2/person_masks \
+  --output /mnt/d/slam/slam_lig/runs/gs_geometry_clean_v2 --mode balanced
+```
+
+本次从 412,818 点保留 354,826 点。追踪一个天空黑块时，主要贡献高斯的相机前向深度仅约 0.207 米，并在两个训练视角关联人物掩码；另有部分污渍高斯远离几何支撑。这支持近场动态残留/漂浮点的诊断，不能据此断言原始雷达测距不准。深度参考来自本次 SLAM 累积地图，并非独立真值，不能用于证明外参或 SLAM 精度。
+
+`runs/gs_geometry_clean_preview/` 是同相机、同轨迹清理前后对照和动画。`compare_local_gs.py` 的 `--baseline` 支持原简化模型或自适应检查点，因而可以直接比较 `gs_adaptive_final/best.pt` 与清理检查点。主要黑块有所减少，但路面拖影、树木与遮挡区域仍未解决；完整图验证 PSNR 为清理前 20.93、清理后 20.60 dB。指标不能替代干净程度检查，此清理版仍不是高质量重建。

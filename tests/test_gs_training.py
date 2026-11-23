@@ -11,10 +11,18 @@ if AVAILABLE:
     import torch
     from refine_local_gs import pose_delta, ssim_loss, CappedStrategy, append_parameters
     from train_local_gs import export_gaussians
+    from clean_local_gs import cleanup_masks
 
 
 @unittest.skipUnless(AVAILABLE, 'Requires optional torch/gsplat environment')
 class GaussianTrainingTests(unittest.TestCase):
+    def test_cleanup_removes_traced_floaters_but_keeps_nearby_static_surface(self):
+        # Actual dirty-pixel contributor, unsupported sky splat, and nearby static surface.
+        modes,_=cleanup_masks(np.array([6,0,10]),np.array([2,0,0]),np.array([4,0,8]),np.array([2,0,0]),
+                              np.array([.12,5.67,.5]),np.array([.092,1.57,.02]),np.array([.028,.325,.05]),np.array([.903,.953,.9]))
+        self.assertEqual(modes['balanced'].tolist(),[False,False,True])
+        self.assertEqual(modes['original'].tolist(),[True,True,True])
+
     def test_ssim_prefers_aligned_edges_and_has_descent_gradient(self):
         image = torch.zeros(24, 32, 3); image[:, 16:] = .8
         blurred = torch.nn.functional.avg_pool2d(image.permute(2,0,1)[None],5,1,2)[0].permute(1,2,0).detach().requires_grad_()

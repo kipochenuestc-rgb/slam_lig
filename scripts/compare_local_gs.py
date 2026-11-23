@@ -23,6 +23,7 @@ def main():
     args=ap.parse_args();args.output.mkdir(parents=True,exist_ok=True)
     views=json.loads((args.scene/'cameras.json').read_text())
     base=torch.load(args.baseline,map_location='cuda',weights_only=False)
+    adaptive_baseline='params' in base
     new=torch.load(args.refined,map_location='cpu',weights_only=False)
     if new['scene']!=str(args.scene):raise ValueError('Refined checkpoint/scene mismatch')
     baseline_scene=pathlib.Path(base['scene'])
@@ -48,9 +49,17 @@ def main():
             delta=(1-t)*pose[a]+t*pose[b]
             c2w=torch.tensor(v['camera_to_world'],dtype=torch.float32,device='cuda')@pose_delta(delta)
             corrected_poses[i]=c2w.cpu().numpy()
-            old=rasterization(base['means'],base['quats'],base['log_scales'].exp(),base['opacity_logits'].sigmoid(),
-                             base['sh'],T,K,w,h,sh_degree=1,near_plane=.3,far_plane=60,
-                             rasterize_mode='antialiased',packed=False,backgrounds=base['background'])[0][0].clamp(0,1)
+            if adaptive_baseline:
+                before=base['params'];baseline_pose=(1-t)*base['pose'][a]+t*base['pose'][b]
+                baseline_c2w=torch.tensor(v['camera_to_world'],dtype=torch.float32,device='cuda')@pose_delta(baseline_pose)
+                old=rasterization(before['means'],before['quats'],before['scales'].exp(),before['opacities'].sigmoid(),
+                                  torch.cat([before['sh0'],before['shN']],1),torch.linalg.inv(baseline_c2w)[None],K,w,h,
+                                  sh_degree=min(base['step']//1500,3),near_plane=.2,far_plane=100,packed=False,
+                                  backgrounds=torch.tensor([[.87,.90,.945]],device='cuda'))[0][0].clamp(0,1)
+            else:
+                old=rasterization(base['means'],base['quats'],base['log_scales'].exp(),base['opacity_logits'].sigmoid(),
+                                 base['sh'],T,K,w,h,sh_degree=1,near_plane=.3,far_plane=60,
+                                 rasterize_mode='antialiased',packed=False,backgrounds=base['background'])[0][0].clamp(0,1)
             fresh=rasterization(params['means'],params['quats'],params['scales'].exp(),params['opacities'].sigmoid(),
                                torch.cat([params['sh0'],params['shN']],1),torch.linalg.inv(c2w)[None],K,w,h,
                                sh_degree=min(new['step']//1500,3),near_plane=.2,far_plane=100,packed=False,
@@ -61,7 +70,8 @@ def main():
                                     'ssim':1-float(ssim_loss(pred,gt))})
             canvas=np.hstack([target,(old.cpu().numpy()*255).astype('u1'),(fresh.cpu().numpy()*255).astype('u1')])
             header=np.full((36,w*3,3),24,dtype='u1')
-            for column,label in enumerate(['ORIGINAL','PREVIOUS 3DGS','REFINED 3DGS']):
+            labels=['ORIGINAL','BEFORE CLEANUP','AFTER CLEANUP'] if adaptive_baseline else ['ORIGINAL','PREVIOUS 3DGS','REFINED 3DGS']
+            for column,label in enumerate(labels):
                 cv2.putText(header,label,(column*w+16,25),cv2.FONT_HERSHEY_SIMPLEX,.6,(240,240,240),1,cv2.LINE_AA)
             canvas=np.vstack([header,canvas])
             cv2.imwrite(str(args.output/f'comparison_{i:04d}.jpg'),cv2.cvtColor(canvas,cv2.COLOR_RGB2BGR))

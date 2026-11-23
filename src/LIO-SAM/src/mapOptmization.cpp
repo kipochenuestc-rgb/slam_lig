@@ -1,4 +1,5 @@
 #include "utility.hpp"
+#include "local_plane.hpp"
 #include <filesystem>
 #include "lio_sam/msg/cloud_info.hpp"
 #include "lio_sam/srv/save_map.hpp"
@@ -99,10 +100,12 @@ public:
 
     std::vector<PointType> laserCloudOriCornerVec; // corner point holder for parallel computation
     std::vector<PointType> coeffSelCornerVec;
-    std::vector<bool> laserCloudOriCornerFlag;
+    // Byte flags allow independent OpenMP writes; vector<bool> packs adjacent
+    // flags into shared words and causes read/modify/write data races.
+    std::vector<uint8_t> laserCloudOriCornerFlag;
     std::vector<PointType> laserCloudOriSurfVec; // surf point holder for parallel computation
     std::vector<PointType> coeffSelSurfVec;
-    std::vector<bool> laserCloudOriSurfFlag;
+    std::vector<uint8_t> laserCloudOriSurfFlag;
 
     map<int, pair<pcl::PointCloud<PointType>, pcl::PointCloud<PointType>>> laserCloudMapContainer;
     pcl::PointCloud<PointType>::Ptr laserCloudCornerFromMap;
@@ -130,7 +133,8 @@ public:
     std::mutex mtxLoopInfo;
 
     bool isDegenerate = false;
-    Eigen::Matrix<float, 6, 6> matP;
+    // Keep the degeneracy projection for every iteration of the current scan.
+    cv::Mat matP;
 
     int laserCloudCornerFromMapDSNum = 0;
     int laserCloudSurfFromMapDSNum = 0;
@@ -294,7 +298,7 @@ public:
             transformTobeMapped[i] = 0;
         }
 
-        matP.setZero();
+        matP = cv::Mat::eye(6, 6, CV_32F);
     }
 
     void laserCloudInfoHandler(const lio_sam::msg::CloudInfo::SharedPtr msgIn)
@@ -305,7 +309,8 @@ public:
 
         // extract info and feature cloud
         cloudInfo = *msgIn;
-        pcl::fromROSMsg(msgIn->cloud_corner,  *laserCloudCornerLast);
+        if (msgIn->cloud_corner.data.empty()) laserCloudCornerLast->clear();
+        else pcl::fromROSMsg(msgIn->cloud_corner, *laserCloudCornerLast);
         pcl::fromROSMsg(msgIn->cloud_surface, *laserCloudSurfLast);
 
         std::lock_guard<std::mutex> lock(mtx);
@@ -833,6 +838,10 @@ public:
             }
         }
 
+        // If prediction was unavailable for a scan, LiDAR already advanced the
+        // map pose. Do not apply an IMU delta spanning that gap on its return.
+        if (!cloudInfo.odom_available) lastImuPreTransAvailable = false;
+
         // use imu incremental estimation for pose guess (only rotation)
         if (cloudInfo.imu_available == true)
         {
@@ -1081,7 +1090,7 @@ public:
 
             pointOri = laserCloudSurfLastDS->points[i];
             pointAssociateToMap(&pointOri, &pointSel); 
-            kdtreeSurfFromMap->nearestKSearch(pointSel, 5, pointSearchInd, pointSearchSqDis);
+            if (kdtreeSurfFromMap->nearestKSearch(pointSel, 5, pointSearchInd, pointSearchSqDis) != 5) continue;
 
             Eigen::Matrix<float, 5, 3> matA0;
             Eigen::Matrix<float, 5, 1> matB0;
@@ -1098,17 +1107,20 @@ public:
                     matA0(j, 2) = laserCloudSurfFromMapDS->points[pointSearchInd[j]].z;
                 }
 
-                matX0 = matA0.colPivHouseholderQr().solve(matB0);
-
-                float pa = matX0(0, 0);
-                float pb = matX0(1, 0);
-                float pc = matX0(2, 0);
-                float pd = 1;
-
-                float ps = sqrt(pa * pa + pb * pb + pc * pc);
-                pa /= ps; pb /= ps; pc /= ps; pd /= ps;
-
+                float pa, pb, pc, pd;
                 bool planeValid = true;
+                if (solidStateSurfaceOnly) {
+                    Eigen::Vector4f plane;
+                    planeValid = fitLocalPlane(matA0, plane);
+                    if (!planeValid) continue;
+                    pa = plane.x(); pb = plane.y(); pc = plane.z(); pd = plane.w();
+                } else {
+                    matX0 = matA0.colPivHouseholderQr().solve(matB0);
+                    pa = matX0(0, 0); pb = matX0(1, 0); pc = matX0(2, 0); pd = 1;
+                    float ps = sqrt(pa * pa + pb * pb + pc * pc);
+                    if (!std::isfinite(ps) || ps < 1e-8f) continue;
+                    pa /= ps; pb /= ps; pc /= ps; pd /= ps;
+                }
                 for (int j = 0; j < 5; j++) {
                     if (fabs(pa * laserCloudSurfFromMapDS->points[pointSearchInd[j]].x +
                              pb * laserCloudSurfFromMapDS->points[pointSearchInd[j]].y +
@@ -1190,7 +1202,6 @@ public:
         cv::Mat matB(laserCloudSelNum, 1, CV_32F, cv::Scalar::all(0));
         cv::Mat matAtB(6, 1, CV_32F, cv::Scalar::all(0));
         cv::Mat matX(6, 1, CV_32F, cv::Scalar::all(0));
-        cv::Mat matP(6, 6, CV_32F, cv::Scalar::all(0));
 
         PointType pointOri, coeff;
 
@@ -1254,6 +1265,9 @@ public:
                 }
             }
             matP = matV.inv() * matV2;
+            RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 5000,
+                "REGISTRATION stamp=%.6f constraints=%d eigen_min=%.3f degenerate=%d",
+                timeLaserInfoCur, laserCloudSelNum, matE.at<float>(0, 5), int(isDegenerate));
         }
 
         if (isDegenerate)
@@ -1290,9 +1304,9 @@ public:
         if (cloudKeyPoses3D->points.empty())
             return;
 
-        if (laserCloudCornerLastDSNum > edgeFeatureMinValidNum && laserCloudSurfLastDSNum > surfFeatureMinValidNum)
+        if ((solidStateSurfaceOnly || laserCloudCornerLastDSNum > edgeFeatureMinValidNum) && laserCloudSurfLastDSNum > surfFeatureMinValidNum)
         {
-            kdtreeCornerFromMap->setInputCloud(laserCloudCornerFromMapDS);
+            if (!solidStateSurfaceOnly) kdtreeCornerFromMap->setInputCloud(laserCloudCornerFromMapDS);
             kdtreeSurfFromMap->setInputCloud(laserCloudSurfFromMapDS);
 
             for (int iterCount = 0; iterCount < 30; iterCount++)
@@ -1300,7 +1314,7 @@ public:
                 laserCloudOri->clear();
                 coeffSel->clear();
 
-                cornerOptimization();
+                if (!solidStateSurfaceOnly) cornerOptimization();
                 surfOptimization();
 
                 combineOptimizationCoeffs();

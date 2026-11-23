@@ -1,0 +1,14 @@
+{
+  "gyro_bias_rad_s": [
+    0.014021114454680572,
+    -0.019287849029698247,
+    -0.017442751861211008
+  ],
+  "accel_bias_m_s2": [
+    0.014366352489707706,
+    -0.005858961967095119,
+    0.17712753031782189
+  ],
+  "samples": 3151,
+  "basis": "First 30 s; wheel speed max 0.0022 m/s, gyro std <0.0009 rad/s. Gravity from filtered quaternion."
+}

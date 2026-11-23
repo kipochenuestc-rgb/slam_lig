@@ -50,8 +50,14 @@ def main():
     summary={'optimized_keyframes':len(t),'duration_s':float(t[-1]-t[0]),'path_length_m':float(np.linalg.norm(np.diff(xyz,axis=0),axis=1).sum()),'saved_corner_points':len(corners),'saved_surface_points':len(surfaces),'gnss_factors':int(factors[-1]) if factors else 0,'imu_resets':(run/'launch.log').read_text().count('reset IMU-preintegration'),'constraint_residuals_not_independent_accuracy':({'count':len(g),'horizontal_rmse_m':float(np.sqrt(np.mean(xy**2))),'horizontal_p95_m':float(np.quantile(xy,.95)),'height_rmse_m':float(np.sqrt(np.mean(residual[:,2]**2))),'last_height_residual_m':float(residual[-1,2])} if len(g) else {'count':0}),'map_xyz_min':p.min(0).tolist(),'map_xyz_max':p.max(0).tolist()}
     (run/'result_summary.json').write_text(json.dumps(summary,indent=2))
     fig,axes=plt.subplots(1,2,figsize=(13,6),layout='constrained')
-    ax=axes[0];ax.scatter(sample[:,0],sample[:,1],s=.15,c=np.clip(sample[:,2],*np.quantile(sample[:,2],[.02,.98])),cmap='viridis',rasterized=True);ax.plot(xyz[:,0],xyz[:,1],color='red',lw=1,label='Optimized SLAM');ax.plot(g[:,1],g[:,2],color='orange',lw=.7,label='GNSS constraints');ax.set_aspect('equal');ax.legend();ax.set(xlabel='Map x (m)',ylabel='Map y (m)',title='Four lidars: fused, filtered, IMU deskewed')
-    axes[1].plot(g[:,0]-t[0],xy,label='Horizontal');axes[1].plot(g[:,0]-t[0],residual[:,2],label='Height (signed)');axes[1].set(xlabel='Time from SLAM start (s)',ylabel='Constraint residual (m)',title='GNSS residuals (not independent accuracy)');axes[1].grid(alpha=.25);axes[1].legend()
+    ax=axes[0];ax.scatter(sample[:,0],sample[:,1],s=.15,c=np.clip(sample[:,2],*np.quantile(sample[:,2],[.02,.98])),cmap='viridis',rasterized=True);ax.plot(xyz[:,0],xyz[:,1],color='red',lw=1,label='Optimized SLAM')
+    if len(g):ax.plot(g[:,1],g[:,2],color='orange',lw=.7,label='GNSS constraints')
+    ax.set_aspect('equal');ax.legend();ax.set(xlabel='Map x (m)',ylabel='Map y (m)',title='Four lidars: fused, filtered, IMU deskewed')
+    if len(g):
+        axes[1].plot(g[:,0]-t[0],xy,label='Horizontal');axes[1].plot(g[:,0]-t[0],residual[:,2],label='Height (signed)');axes[1].set(xlabel='Time from SLAM start (s)',ylabel='Constraint residual (m)',title='GNSS residuals (not independent accuracy)')
+    else:
+        axes[1].plot(t-t[0],xyz[:,2],label='SLAM height');axes[1].set(xlabel='Time from SLAM start (s)',ylabel='Map z (m)',title='Local map height (no GNSS constraints)')
+    axes[1].grid(alpha=.25);axes[1].legend()
     fig.savefig(run/'map_preview.png',dpi=170);print(json.dumps(summary))
 
 

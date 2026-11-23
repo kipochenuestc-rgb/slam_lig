@@ -26,6 +26,8 @@
 
 ## WSL 命令
 
+只用雷达和 IMU 建图：给 `scripts/run_slam.py` 增加 `--no-gnss`。此时不订阅 GNSS、不发布 GNSS 约束，回放原始数据时也不播放 GNSS 话题；IMU 偏置补偿保持启用。新数据可分别通过 `--calibration-dir`、`--params-file`、`--imu-bias-file` 指定随包外参、LIO 参数和本次静止段偏置，避免套用旧数据参数。
+
 ```bash
 # 编译独立工作区 /home/kipoc/slam_lig_ws
 bash /mnt/d/slam/slam_lig/scripts/build.sh
@@ -56,6 +58,23 @@ bash /mnt/d/slam/slam_lig/scripts/open_map.sh /path/to/run
 ```
 
 默认数据位置和已保存结果位置在 `config/dataset.json`，大体积 bag 和历史成果与代码分开。`--start-offset` 默认 0 秒，仅影响回放；如需复现旧验证可指定 40 秒。IMU 常量偏置使用已有标定文件，不会预读当前数据。`--duration` 在回放模式表示传感器时长，在实时/录制模式表示墙钟时长（0 为持续运行）。`--rate` 仅控制回放倍率。
+
+### 2026-11-24 固态雷达数据
+
+`config/profiles/session_20261124_params.yaml` 使用本次 IMU 安装位置，并启用 `solidStateSurfaceOnly`：保留逐点旋转去畸变，跳过模拟 ring 的距离图和扫描线曲率，采用体素降采样与三维邻域平面匹配。`useImuOdometryPrediction: false` 隔离预积分位姿到配准初值的反馈，仍使用 IMU 角速度和姿态；预积分节点保留运行及故障检查。此模式不等同于原版 LIO-SAM 的完整预积分反馈链路。
+
+复现本次从 3:10 开始、不使用 GNSS 的运行：
+
+```bash
+bash /mnt/d/slam/slam_lig/scripts/ros_env.sh python3 /mnt/d/slam/slam_lig/scripts/run_slam.py \
+  --mode replay --bag /mnt/d/slam/session_20261124_100923_5cbed2/bag \
+  --start-offset 190 --no-gnss --no-imu-prediction \
+  --calibration-dir /mnt/d/slam/session_20261124_100923_5cbed2/calibration \
+  --params-file /mnt/d/slam/slam_lig/config/profiles/session_20261124_params.yaml \
+  --imu-bias-file /mnt/d/slam/slam_lig/config/profiles/session_20261124_imu_bias.json
+```
+
+该偏置来自本次数据开头已确认静止的 30 秒，不能作为所有新数据的通用标定。无 GNSS 约束时保存的是本地坐标地图；若事后与 GNSS 对照，应区分坐标对齐样本和未参与对齐的验证样本。
 
 ## 目录
 

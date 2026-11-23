@@ -12,6 +12,11 @@ def main():
     ap.add_argument('--mode',choices=['live','record','replay'],help='Default from config/runtime.yaml')
     ap.add_argument('--live',action='store_true',help='Receive real sensor topics; do not launch a bag player')
     ap.add_argument('--gnss-topic',help='NavSatFix input topic (default from config/bridge.yaml)')
+    ap.add_argument('--no-gnss',action='store_true',help='LiDAR + IMU only; disable GNSS input and constraints')
+    ap.add_argument('--no-imu-prediction',action='store_true',help='Keep gyro deskew but do not use preintegrated IMU odometry as the registration initial guess')
+    ap.add_argument('--calibration-dir',type=pathlib.Path,help='Calibration snapshot for this dataset')
+    ap.add_argument('--params-file',type=pathlib.Path,help='LIO-SAM parameters for this dataset')
+    ap.add_argument('--imu-bias-file',type=pathlib.Path,help='Stationary IMU bias measured for this dataset')
     ap.add_argument('--input',choices=['raw','fused'],default='raw')
     ap.add_argument('--run',default=datetime.datetime.now(ZoneInfo('Asia/Shanghai')).strftime('run_%Y%m%d_%H%M%S'))
     ap.add_argument('--rate',type=float,default=1.)
@@ -57,6 +62,7 @@ def main():
         bag=pathlib.Path(subprocess.run(['wslpath','-u',str(bag)],check=True,capture_output=True,text=True).stdout.strip())
     if bag is not None and not (bag/'metadata.yaml').is_file():raise FileNotFoundError(bag/'metadata.yaml')
     gnss_topic=args.gnss_topic or yaml.safe_load((ROOT/'config/bridge.yaml').read_text())['/**']['ros__parameters']['gnss_topic']
+    lio_params=yaml.safe_load((args.params_file or ROOT/'config/params.yaml').read_text())
     sim_time='false' if args.live else 'true'
     if pathlib.Path(args.run).name!=args.run:ap.error('--run must be a folder name')
     run=ROOT/'runs'/args.run;run.mkdir(exist_ok=False)
@@ -66,13 +72,26 @@ def main():
               'monitor':['python3','-u',str(ROOT/'scripts/monitor.py'),str(run)],
               'filter':['python3','-u',str(ROOT/'scripts/filter_node.py')]}
     if args.input=='raw':commands['fusion']=['python3','-u',str(ROOT/'scripts/fusion_node.py')]
+    if args.calibration_dir and args.input=='raw':commands['fusion']+=['--ros-args','-p','calibration_dir:='+str(args.calibration_dir)]
+    if args.params_file:commands['launch']+=['params_file:='+str(args.params_file)]
+    if args.no_gnss or args.no_imu_prediction:
+        params=lio_params
+        if args.no_gnss:params['/**']['ros__parameters']['gpsTopic']='/slam_lig/disabled_gnss/'+args.run
+        if args.no_imu_prediction:params['/**']['ros__parameters']['useImuOdometryPrediction']=False
+        params_path=run/'slam_params_no_gnss.yaml';params_path.write_text(yaml.safe_dump(params))
+        commands['launch']=[x for x in commands['launch'] if not x.startswith('params_file:=')]+['params_file:='+str(params_path)]
+        if args.no_gnss:commands['bridge']+=['-p','gnss_enabled:=false']
+    if args.imu_bias_file:commands['bridge']+=['-p','imu_bias_file:='+str(args.imu_bias_file)]
     if not args.no_rviz:commands['rviz']=['python3','-u',str(ROOT/'scripts/launch_rviz.py')]
     if not args.live:
         player=['ros2','bag','play',str(bag),'--clock','--start-offset',str(args.start_offset),'--delay','8','--rate',str(args.rate),'--read-ahead-queue-size','1000']
         if args.duration:player+=['--playback-duration',str(args.duration)]
-        if args.input=='raw':player+=['--topics','/imu/data',gnss_topic]+[f'/point_cloud_hasco{i}' for i in range(1,5)]
+        if args.input=='raw':player+=['--topics','/imu/data']+([] if args.no_gnss else [gnss_topic])+[f'/point_cloud_hasco{i}' for i in range(1,5)]
         commands['player']=player
     processes={};logs=[];status={'failed':False,'interrupted':False,'mode':mode,'bag':str(bag) if bag is not None else None,'live_sensors':args.live,'gnss_topic':gnss_topic,'input':args.input,'live_fusion':args.input=='raw','live_filter':True,'run':str(run)}
+    status['gnss_enabled']=not args.no_gnss
+    status['imu_odometry_prediction']=bool(lio_params['/**']['ros__parameters'].get('useImuOdometryPrediction',True))
+    status['solid_state_surface_only']=bool(lio_params['/**']['ros__parameters'].get('solidStateSurfaceOnly',False))
     def stop_children():
         for p in processes.values():
             if p.poll() is None:

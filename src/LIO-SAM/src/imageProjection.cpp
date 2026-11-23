@@ -68,6 +68,7 @@ private:
     int imuPointerCur;
     bool firstPointFlag;
     bool deskewReferenceToHeader = false;
+    bool useImuOdometryPrediction = true;
     Eigen::Affine3f transStartInverse;
 
     pcl::PointCloud<PointXYZIRT>::Ptr laserCloudIn;
@@ -129,6 +130,7 @@ public:
             "lio_sam/deskew/cloud_info", qos);
 
         deskewReferenceToHeader = declare_parameter<bool>("deskewReferenceToHeader", false);
+        useImuOdometryPrediction = declare_parameter<bool>("useImuOdometryPrediction", true);
         allocateMemory();
         resetParameters();
 
@@ -203,6 +205,7 @@ public:
 
     void odometryHandler(const nav_msgs::msg::Odometry::SharedPtr odometryMsg)
     {
+        if (!useImuOdometryPrediction) return;
         std::lock_guard<std::mutex> lock2(odoLock);
         odomQueue.push_back(*odometryMsg);
     }
@@ -403,6 +406,7 @@ public:
     void odomDeskewInfo()
     {
         cloudInfo.odom_available = false;
+        if (!useImuOdometryPrediction) return;
 
         while (!odomQueue.empty())
         {
@@ -580,6 +584,12 @@ public:
             if (range < lidarMinRange || range > lidarMaxRange)
                 continue;
 
+            if (solidStateSurfaceOnly) {
+                // Solid-state samples have no physical scan-line adjacency.
+                extractedCloud->push_back(deskewPoint(&thisPoint, laserCloudIn->points[i].time));
+                continue;
+            }
+
             int rowIdn = laserCloudIn->points[i].ring;
             // if sensor is a velodyne (ringFlag = 2) calculate rowIdn based on number of scans
             if (ringFlag == 2) { 
@@ -629,6 +639,7 @@ public:
 
     void cloudExtraction()
     {
+        if (solidStateSurfaceOnly) return;
         int count = 0;
         // extract segmented cloud for lidar odometry
         for (int i = 0; i < N_SCAN; ++i)

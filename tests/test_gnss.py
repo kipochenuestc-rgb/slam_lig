@@ -27,6 +27,30 @@ class CoordinateTests(unittest.TestCase):
         c=np.diag([4,9,16]);np.testing.assert_allclose(fix_covariance(c.ravel(),True,1,1.5),c)
 
 class LiveTopicTests(unittest.TestCase):
+    def test_disabled_gnss_keeps_imu_without_gps_subscriptions_or_publisher(self):
+        import rclpy
+        from rclpy.parameter import Parameter
+        from sensor_msgs.msg import Imu,NavSatFix
+        from gnss_bridge import GNSSBridge
+        previous=os.environ.get('SLAM_RUN_DIR');rclpy.init()
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                os.environ['SLAM_RUN_DIR']=directory
+                bridge=GNSSBridge(parameter_overrides=[Parameter('gnss_enabled',value=False),Parameter('apply_imu_bias',value=False)])
+                try:
+                    self.assertIsNone(bridge.gps_pub)
+                    topics=[name for name,_ in bridge.get_subscriber_names_and_types_by_node(bridge.get_name(),bridge.get_namespace())]
+                    self.assertIn('/imu/data',topics);self.assertNotIn('/gnss/fix_fixed',topics)
+                    bridge.gnss(NavSatFix());self.assertEqual(bridge.count['fix_received'],0)
+                    bridge.imu(Imu());self.assertEqual(bridge.count['imu_published'],1)
+                    bridge.report();self.assertIn('disabled_imu_only',(pathlib.Path(directory)/'bridge_status.json').read_text())
+                    self.assertFalse((pathlib.Path(directory)/'gnss_alignment.json').exists())
+                finally:bridge.destroy_node()
+        finally:
+            rclpy.shutdown()
+            if previous is None:os.environ.pop('SLAM_RUN_DIR',None)
+            else:os.environ['SLAM_RUN_DIR']=previous
+
     def test_live_topics_without_clock_preserve_time_and_rotate_covariance(self):
         import rclpy
         from rclpy.executors import SingleThreadedExecutor

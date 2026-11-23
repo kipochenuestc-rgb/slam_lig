@@ -75,6 +75,15 @@ public:
         cloudHeader = msgIn->header; // new cloud header
         pcl::fromROSMsg(msgIn->cloud_deskewed, *extractedCloud); // new cloud for extraction
 
+        if (solidStateSurfaceOnly) {
+            cornerCloud->clear();
+            surfaceCloud->clear();
+            downSizeFilter.setInputCloud(extractedCloud);
+            downSizeFilter.filter(*surfaceCloud);
+            publishFeatureCloud();
+            return;
+        }
+
         calculateSmoothness();
 
         markOccludedPoints();

@@ -119,6 +119,7 @@ public:
     float surfThreshold;
     int edgeFeatureMinValidNum;
     int surfFeatureMinValidNum;
+    bool solidStateSurfaceOnly;
 
     // voxel filter paprams
     float odometrySurfLeafSize;
@@ -259,6 +260,8 @@ public:
         get_parameter("edgeFeatureMinValidNum", edgeFeatureMinValidNum);
         declare_parameter("surfFeatureMinValidNum", 100);
         get_parameter("surfFeatureMinValidNum", surfFeatureMinValidNum);
+        declare_parameter("solidStateSurfaceOnly", false);
+        get_parameter("solidStateSurfaceOnly", solidStateSurfaceOnly);
 
         declare_parameter("odometrySurfLeafSize", 0.4);
         get_parameter("odometrySurfLeafSize", odometrySurfLeafSize);

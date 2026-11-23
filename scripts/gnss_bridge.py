@@ -18,6 +18,7 @@ class GNSSBridge(Node):
         super().__init__('gnss_position_bridge',**kwargs)
         defaults={'gnss_topic':'/gnss/fix_fixed','imu_topic':'/imu/data','odom_topic':'/lio_sam/mapping/odometry','gnss_output_topic':'/lio_gnss/odometry','imu_output_topic':'/imu/calibrated','map_frame':'map','alignment_mode':'online','georeference_file':str(ROOT/'config/georeference.json'),'imu_bias_file':str(ROOT/'config/imu_initial_bias.json'),'apply_imu_bias':True,'min_alignment_points':12,'min_alignment_baseline_m':15.,'max_alignment_rmse_m':1.5,'alignment_window_s':120.,'max_odom_gap_s':1.,'unknown_horizontal_std_m':1.,'unknown_vertical_std_m':1.5,'max_horizontal_variance_m2':25.}
         for name,value in defaults.items():self.declare_parameter(name,value)
+        self.declare_parameter('gnss_enabled',True)
         self.p=lambda name:self.get_parameter(name).value
         self.output=pathlib.Path(os.environ.get('SLAM_RUN_DIR',str(ROOT/'runs/live_bridge')));self.output.mkdir(parents=True,exist_ok=True)
         self.count=Counter();self.local=None;self.rotation=None;self.translation=None;self.metrics={};self.last_fix_ns=-1
@@ -25,16 +26,18 @@ class GNSSBridge(Node):
         self.gyro_bias=np.zeros(3);self.accel_bias=np.zeros(3)
         if self.p('apply_imu_bias'):
             bias=json.loads(pathlib.Path(self.p('imu_bias_file')).read_text());self.gyro_bias=np.array(bias['gyro_bias_rad_s']);self.accel_bias=np.array(bias['accel_bias_m_s2'])
-        if self.p('alignment_mode')=='fixed':
+        if not self.p('gnss_enabled'):pass
+        elif self.p('alignment_mode')=='fixed':
             config=json.loads(pathlib.Path(self.p('georeference_file')).read_text());self.local=LocalENU(*config['reference_wgs84']);self.rotation=np.eye(3);self.rotation[:2,:2]=config['map_to_enu_R_xy'];self.translation=np.r_[-np.array(config['map_to_enu_translation_xy'])@self.rotation[:2,:2].T,-config['map_to_enu_z_offset']];self.metrics={'mode':'fixed'}
         elif self.p('alignment_mode')!='online':raise ValueError('alignment_mode must be online or fixed')
-        self.gps_pub=self.create_publisher(Odometry,self.p('gnss_output_topic'),100)
+        self.gps_pub=self.create_publisher(Odometry,self.p('gnss_output_topic'),100) if self.p('gnss_enabled') else None
         self.imu_pub=self.create_publisher(Imu,self.p('imu_output_topic'),qos_profile_sensor_data)
-        self.input_subscriptions=[self.create_subscription(NavSatFix,self.p('gnss_topic'),self.gnss,qos_profile_sensor_data),self.create_subscription(Imu,self.p('imu_topic'),self.imu,qos_profile_sensor_data),self.create_subscription(Odometry,self.p('odom_topic'),self.odom,qos_profile_sensor_data)]
+        self.input_subscriptions=[self.create_subscription(Imu,self.p('imu_topic'),self.imu,qos_profile_sensor_data)]
+        if self.p('gnss_enabled'):self.input_subscriptions += [self.create_subscription(NavSatFix,self.p('gnss_topic'),self.gnss,qos_profile_sensor_data),self.create_subscription(Odometry,self.p('odom_topic'),self.odom,qos_profile_sensor_data)]
         self.csv_file=(self.output/'gnss_constraints.csv').open('w',newline='');self.csv_writer=csv.writer(self.csv_file);self.csv_writer.writerow(['stamp_s','x','y','z']);self.csv_file.flush()
         self.create_timer(2,self.report)
         if self.rotation is not None:self.save_alignment()
-        self.get_logger().info(f"Live GNSS input: {self.p('gnss_topic')} (NavSatFix); alignment={self.p('alignment_mode')}; measurement stamps preserved")
+        self.get_logger().info(f"GNSS enabled={self.p('gnss_enabled')}; IMU input={self.p('imu_topic')}; measurement stamps preserved")
 
     def imu(self,m):
         for k,b in zip(['x','y','z'],self.gyro_bias):setattr(m.angular_velocity,k,getattr(m.angular_velocity,k)-b)
@@ -42,6 +45,7 @@ class GNSSBridge(Node):
         self.imu_pub.publish(m);self.count['imu_published']+=1
 
     def gnss(self,m):
+        if not self.p('gnss_enabled'):return
         self.count['fix_received']+=1;ns=stamp_ns(m)
         if m.status.status<0 or not np.isfinite([m.longitude,m.latitude,m.altitude]).all() or not -180<=m.longitude<=180 or not -90<m.latitude<90:
             self.count['invalid_fix']+=1;return
@@ -100,6 +104,7 @@ class GNSSBridge(Node):
 
     def report(self):
         result={'state':'ready' if self.rotation is not None else 'waiting_for_motion_and_matching_odometry','input_topic':self.p('gnss_topic'),'counts':dict(self.count),'alignment_pairs':len(self.pairs),'pending_fixes':len(self.pending),'alignment':self.metrics}
+        if not self.p('gnss_enabled'):result['state']='disabled_imu_only'
         (self.output/'bridge_status.json').write_text(json.dumps(result,indent=2))
 
     def destroy_node(self):

@@ -273,3 +273,57 @@ bash /mnt/d/slam/slam_lig/scripts/gs_env.sh \
 本次从 412,818 点保留 354,826 点。追踪一个天空黑块时，主要贡献高斯的相机前向深度仅约 0.207 米，并在两个训练视角关联人物掩码；另有部分污渍高斯远离几何支撑。这支持近场动态残留/漂浮点的诊断，不能据此断言原始雷达测距不准。深度参考来自本次 SLAM 累积地图，并非独立真值，不能用于证明外参或 SLAM 精度。
 
 `runs/gs_geometry_clean_preview/` 是同相机、同轨迹清理前后对照和动画。`compare_local_gs.py` 的 `--baseline` 支持原简化模型或自适应检查点，因而可以直接比较 `gs_adaptive_final/best.pt` 与清理检查点。主要黑块有所减少，但路面拖影、树木与遮挡区域仍未解决；完整图验证 PSNR 为清理前 20.93、清理后 20.60 dB。指标不能替代干净程度检查，此清理版仍不是高质量重建。
+
+
+## 当前推荐：SLAM 相机先验 + 纯图像 3DGS
+
+按当前路线，雷达/IMU/GNSS 只负责上游 SLAM 轨迹与全局坐标。图像时间戳处插值 SLAM 的完整六自由度位姿，组合相机外参，得到四个相机的初值。随后只用图片的特征匹配、三角化与刚性四相机束调整生成稀疏点，交给 3DGS 自适应增密训练。**不读取雷达点作为初始化，不使用雷达深度、贴面、平面延伸或测量点距离损失。**
+
+已有整套局部验证输入在 `runs/rgb_gs_wide`，含 275–295 秒片段的 36 组、144 张去畸变图片和 SLAM 相机初始位姿。这个输入目录虽然包含其他实验的点云，新路线只读取其中 `images/`、`cameras.json` 与坐标/标定元数据，测试使用损坏的源点云文件验证打包器不会读取它。所有帧位姿均包含位置与朝向，而非只有 GNSS 经纬度。
+
+双击前可在 Windows 终端指定新运行名：
+
+```cmd
+D:\slam\slam_lig\start_image_only_gs.cmd image_only_run_02
+```
+
+该入口使用 Ubuntu-24.04、本机已有图片与语义分割结果，依次执行束调整、纯图像数据打包和训练，输出到 `runs/image_only_run_02/{bundle,scene,model}`。新输出根目录必须不存在。WSL 等价命令：
+
+```bash
+bash /mnt/d/slam/slam_lig/scripts/run_image_only_gs.sh \
+  /mnt/d/slam/slam_lig/runs/rgb_gs_wide \
+  /mnt/d/slam/slam_lig/runs/image_only_run_02 \
+  /mnt/d/slam/slam_lig/runs/static_semantics_v2
+```
+
+如省略第三个参数，会自动运行语义分割。`SLAM_IMAGE_GS_STEPS` 默认 20000、`SLAM_IMAGE_GS_CAP` 默认 700000；训练选择验证 PSNR 最佳检查点，5 次连续验证未改善则提前结束。可选依赖版本写在 `config/image_gs_requirements.txt`（通过隔离环境的 pip 安装）。本机新增可选依赖为 pycolmap 4.2.1、transformers 5.20.2，安装在隔离的 `/home/kipoc/slam_gs_env`；Torch/CUDA 仍沿用已有环境。语义分割首次下载 NVIDIA SegFormer-B0 ADE20K 权重，用于屏蔽人物/车辆；天空仍参与图像颜色损失。掩码可能有误判，应目视检查。
+
+### 数据与位姿来源
+
+- `bundle_adjust_rig.py` 仅使用训练图像的 SIFT 匹配和多视图轨迹，四相机固定为一个刚性支架；内参、相机间外参保持固定。首尾训练时刻固定于 SLAM 初值以保留尺度与坐标基准。该流程不验证厂家候选外参的独立精度。
+- 整组时间编号 `%8==4` 的 16 张图像不参与特征重建、三角化或优化；其支架位姿修正由相邻训练时刻插值。其他 128 张图像用于训练。没有用验证图片给稀疏点取色。
+- `prepare_image_only_scene.py` 只从束调整输出的 `feature_points.npz` 生成 `scene/points.npz`，来源散列与 `lidar_geometry_used:false` 写在 `scene.json`。
+- `scene/slam_camera_priors.json` 保存四路相机原始 SLAM 初值，`scene/cameras.json` 保存束调整结果，`scene/camera_poses.csv` 按图像列出时间戳、局部 map 米制位置与旋转矩阵；恢复原 map 坐标时加回 `scene_origin_map_m`。
+- `scene/sparse/` 是只含训练图像的完整 COLMAP 重建、特征观测与轨迹；`image_sparse_points.ply` 是图像三角化点，不是雷达点。
+- `refine_local_gs.py --image-only --no-pose-opt` 明确校验数据来源，禁止外部点/检查点初始化，固定已整体优化的相机位姿，再按图片 L1/SSIM 优化高斯及球谐颜色。GNSS 只通过上游 SLAM 位姿和坐标基准起作用，不直接加入训练损失。
+
+本次已跑的结果在 `runs/image_only_bundle_v1`、`runs/image_only_scene_v1` 和 `runs/image_only_gs_v1`。初始 2,576 个图像点，束调整平均重投影误差从 0.838 降至 0.367 像素，并收敛。输出 `model/best.pt`、`gaussians.ply`、`training_report.json` 与 `renders/best_*.jpg`。比较新旧模型可以使用：
+
+```bash
+bash /mnt/d/slam/slam_lig/scripts/gs_env.sh \
+  /mnt/d/slam/slam_lig/scripts/compare_local_gs.py \
+  --scene /mnt/d/slam/slam_lig/runs/image_only_scene_v1 \
+  --baseline /mnt/d/slam/slam_lig/runs/gs_adaptive_final/best.pt \
+  --refined /mnt/d/slam/slam_lig/runs/image_only_gs_v1/best.pt \
+  --output /mnt/d/slam/slam_lig/runs/image_only_comparison --allow-pose-change --animation
+```
+
+`--allow-pose-change` 允许新路线使用束调整后的位姿，但仍逐张验证图像 SHA256、相机编号、时间戳、内参和分辨率一致。因此比较的是同一批捕获图像下的两条完整重建路线，不是强行使用同一外参的单项消融。动态预览沿相机 1 轨迹插值并侧移 0.1 米。完整图 PSNR/SSIM 仅为本次验证指标，不代表独立几何精度；行人遮挡、弱纹理路面、稀疏采样和未观测区域仍可能产生伪影。
+
+```bash
+PYTHONPATH=/mnt/d/slam/slam_lig/scripts bash /mnt/d/slam/slam_lig/scripts/gs_env.sh \
+  -m unittest discover -s /mnt/d/slam/slam_lig/tests -p test_image_only_pipeline.py
+```
+
+
+本次纯图像训练已完成 20,000 次迭代，导出 374,845 个高斯点；`runs/image_only_comparison_final/` 是最终同图像对比与动态预览。完整验证图像 PSNR 为旧版 20.93、新版 21.50 dB；SSIM 为旧版 0.747、新版 0.733。建筑轮廓更完整，检查视角中原先显著的天空漂浮黑块消失，但近处路面仍有拖影/拉伸，树木、遮挡与未观测区域仍不理想。新路线已实现并实跑，不将指标提升宣称为画质问题全部解决。

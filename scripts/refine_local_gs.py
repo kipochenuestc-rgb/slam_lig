@@ -107,6 +107,7 @@ def main():
     ap.add_argument('--mask-dir',type=pathlib.Path)
     ap.add_argument('--export-only',action='store_true',help='Export --resume without more optimization')
     ap.add_argument('--patience',type=int,default=4,help='Stop after this many validation checks without improvement; 0 disables')
+    ap.add_argument('--image-only',action='store_true',help='Require image-triangulated initialization and prohibit LiDAR geometry inputs')
     args = ap.parse_args()
     if args.steps < 1 or args.eval_every < 1 or args.initial_points < 8 or args.point_cap < args.initial_points:
         raise ValueError('Invalid training/growth settings')
@@ -115,6 +116,11 @@ def main():
     args.output.mkdir(parents=True); (args.output/'renders').mkdir()
     torch.manual_seed(42); rng = np.random.default_rng(42)
     views = json.loads((args.scene/'cameras.json').read_text())
+    metadata=json.loads((args.scene/'scene.json').read_text())
+    if args.image_only:
+        if metadata.get('initialization_source')!='image_tracks_bundle_adjusted':raise ValueError('Image-only mode requires a verified image-track scene')
+        if args.resume or args.feature_points:raise ValueError('Image-only run starts from its own image tracks; external checkpoints/points prohibited')
+        if not args.no_pose_opt:raise ValueError('Use --no-pose-opt to preserve the jointly optimized rigid camera rig')
     images = []
     for v in views:
         im = cv2.imread(str(args.scene/v['image_path']))
@@ -132,7 +138,7 @@ def main():
     data = np.load(args.scene/'points.npz'); xyz = data['xyz']; rgb = data['rgb']/255.
     sel = rng.choice(len(xyz), min(args.initial_points,len(xyz)), replace=False); xyz, rgb = xyz[sel], rgb[sel]
     dist, _ = cKDTree(xyz).query(xyz, k=4, workers=4)
-    scales = np.sqrt((dist[:,1:]**2).mean(1)).clip(.005,.2)
+    scales = np.sqrt((dist[:,1:]**2).mean(1)).clip(.005,2. if args.image_only else .2)
     initial = {'means':xyz, 'scales':np.log(scales)[:,None].repeat(3,1),
                'quats':np.tile([1.,0,0,0],(len(xyz),1)),
                'opacities':np.full(len(xyz),math.log(.1/.9)),
@@ -205,7 +211,7 @@ def main():
         return rasterization(params['means'],params['quats'],params['scales'].exp(),
                params['opacities'].sigmoid(),torch.cat([params['sh0'],params['shN']],1),
                view_matrix(i,corrected)[None],Ks[i:i+1],w,h,sh_degree=active_degree,
-               near_plane=.2,far_plane=100,packed=False,absgrad=True,backgrounds=bg)
+               near_plane=.2,far_plane=150 if args.image_only else 100,packed=False,absgrad=True,backgrounds=bg)
     def evaluate(tag):
         psnrs=[];ssims=[]
         with torch.no_grad():
@@ -222,7 +228,8 @@ def main():
         temporary=path.with_suffix('.tmp')
         torch.save({'params':{k:p.detach().cpu() for k,p in params.items()},'pose':pose.detach().cpu(),
                     'optimizers':{k:o.state_dict() for k,o in optimizers.items()},'pose_optimizer':pose_optimizer.state_dict(),
-                    'strategy_state':state,'step':step,'scene':str(args.scene),'added_features':added_features},temporary)
+                    'strategy_state':state,'step':step,'scene':str(args.scene),'added_features':added_features,
+                    'geometry_source':'image_tracks_only' if args.image_only else 'lidar_initialized','background':bg.cpu()},temporary)
         temporary.replace(path)
     start=time.monotonic();initial=evaluate('initial');best=initial;history=[];order=[];stale=0;last_step=start_step
     if args.resume:
@@ -244,7 +251,7 @@ def main():
         if step>1000 and not args.no_pose_opt:pose_optimizer.step()
         pose_optimizer.zero_grad(set_to_none=True)
         with torch.no_grad():
-            params['scales'].clamp_(math.log(.001),math.log(1.))
+            params['scales'].clamp_(math.log(.001),math.log(2. if args.image_only else 1.))
             params['opacities'].clamp_(-12,12)
             pose[:,:3].clamp_(-.15,.15);pose[:,3:].clamp_(-.035,.035)
         strategy.step_post_backward(params,optimizers,state,step,info)
@@ -275,11 +282,13 @@ def main():
             'mode':'export_only' if args.export_only else 'training','scene':str(args.scene),
             'pose_optimization':not args.no_pose_opt,'person_mask':args.mask_people or bool(args.mask_dir),
             'added_image_feature_points':added_features,'peak_allocated_mb':torch.cuda.max_memory_allocated()/2**20,
+            'geometry_source':'image_tracks_only' if args.image_only else 'lidar_initialized',
+            'lidar_geometry_used':not args.image_only,'depth_loss_used':False,
             'notes':['Same exported images and temporal validation split as baseline.',
                      'Validation pose corrections interpolate adjacent training poses, never optimize validation images.',
-                     'Point initialization colors include the complete scene. Metrics are validation, not an independent test.',
-                     'People masks only affect training; reported validation metrics are unmasked. No explicit sky geometry.',
-                     'Camera adjustments are appearance refinement, not verified recalibration.']}
+                     'Image-only initialization uses training image tracks only; other modes may use colors from the complete scene. Metrics select a validation checkpoint.',
+                     'Dynamic-image masks only affect training; reported validation metrics are unmasked. No explicit sky geometry.',
+                     'Image-only mode fixes the jointly bundle-adjusted camera rig. Other modes may optimize individual camera corrections; neither proves calibration accuracy.']}
     (args.output/'training_report.json').write_text(json.dumps(report,indent=2))
     (args.output/'history.json').write_text(json.dumps(history));print('READY',json.dumps(report),flush=True)
 

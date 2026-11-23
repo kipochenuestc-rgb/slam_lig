@@ -1,0 +1,4 @@
+# Install in the optional slam_gs_env; existing tested runtime: Torch 2.8.0+cu128.
+gsplat==1.5.3
+pycolmap==4.2.1
+transformers==5.20.2

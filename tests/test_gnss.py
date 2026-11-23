@@ -2,6 +2,14 @@ import math,os,pathlib,tempfile,time,unittest
 import numpy as np
 from gnss_core import LocalENU,ecef,fit_alignment,fix_covariance
 
+def isolated_ros_args():
+    import uuid
+    namespace='/slam_test_'+uuid.uuid4().hex
+    args=['--ros-args','-r','__ns:='+namespace]
+    for topic in ['/imu/data','/imu/calibrated','/gnss/fix_fixed','/lio_sam/mapping/odometry','/lio_gnss/odometry','/clock']:
+        args+=['-r',topic+':='+namespace+topic]
+    return args
+
 class CoordinateTests(unittest.TestCase):
     def test_wgs84_origin_and_east(self):
         np.testing.assert_allclose(ecef(0,0,0),[6378137,0,0])
@@ -27,12 +35,45 @@ class CoordinateTests(unittest.TestCase):
         c=np.diag([4,9,16]);np.testing.assert_allclose(fix_covariance(c.ravel(),True,1,1.5),c)
 
 class LiveTopicTests(unittest.TestCase):
+    def test_imu_burst_survives_delayed_executor_without_losing_samples(self):
+        import rclpy
+        from rclpy.executors import SingleThreadedExecutor
+        from rclpy.parameter import Parameter
+        from rclpy.qos import QoSProfile,ReliabilityPolicy
+        from sensor_msgs.msg import Imu
+        from gnss_bridge import GNSSBridge
+        previous=os.environ.get('SLAM_RUN_DIR');rclpy.init(args=isolated_ros_args())
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                os.environ['SLAM_RUN_DIR']=directory
+                bridge=GNSSBridge(parameter_overrides=[Parameter('apply_imu_bias',value=False)])
+                source=rclpy.create_node('test_imu_burst');executor=SingleThreadedExecutor();executor.add_node(bridge);executor.add_node(source)
+                qos=QoSProfile(depth=2000,reliability=ReliabilityPolicy.BEST_EFFORT)
+                pub=source.create_publisher(Imu,'/imu/data',qos);received=[]
+                sub=source.create_subscription(Imu,'/imu/calibrated',lambda m:received.append(m.header.stamp.nanosec),qos)
+                try:
+                    deadline=time.monotonic()+5
+                    while time.monotonic()<deadline and (pub.get_subscription_count()==0 or bridge.imu_pub.get_subscription_count()==0):executor.spin_once(timeout_sec=.02)
+                    self.assertGreater(pub.get_subscription_count(),0)
+                    for i in range(500):
+                        m=Imu();m.header.stamp.sec=123;m.header.stamp.nanosec=i*1000000;pub.publish(m)
+                    # Model a busy GNSS callback: receive a burst before spinning.
+                    time.sleep(.1);deadline=time.monotonic()+8
+                    while len(received)<500 and time.monotonic()<deadline:executor.spin_once(timeout_sec=.01)
+                    self.assertEqual(received,list(range(0,500000000,1000000)))
+                    self.assertEqual(bridge.count['imu_published'],500)
+                finally:executor.shutdown();source.destroy_node();bridge.destroy_node()
+        finally:
+            rclpy.shutdown()
+            if previous is None:os.environ.pop('SLAM_RUN_DIR',None)
+            else:os.environ['SLAM_RUN_DIR']=previous
+
     def test_disabled_gnss_keeps_imu_without_gps_subscriptions_or_publisher(self):
         import rclpy
         from rclpy.parameter import Parameter
         from sensor_msgs.msg import Imu,NavSatFix
         from gnss_bridge import GNSSBridge
-        previous=os.environ.get('SLAM_RUN_DIR');rclpy.init()
+        previous=os.environ.get('SLAM_RUN_DIR');rclpy.init(args=isolated_ros_args())
         try:
             with tempfile.TemporaryDirectory() as directory:
                 os.environ['SLAM_RUN_DIR']=directory
@@ -40,7 +81,7 @@ class LiveTopicTests(unittest.TestCase):
                 try:
                     self.assertIsNone(bridge.gps_pub)
                     topics=[name for name,_ in bridge.get_subscriber_names_and_types_by_node(bridge.get_name(),bridge.get_namespace())]
-                    self.assertIn('/imu/data',topics);self.assertNotIn('/gnss/fix_fixed',topics)
+                    self.assertTrue(any(t.endswith('/imu/data') for t in topics));self.assertFalse(any(t.endswith('/gnss/fix_fixed') for t in topics))
                     bridge.gnss(NavSatFix());self.assertEqual(bridge.count['fix_received'],0)
                     bridge.imu(Imu());self.assertEqual(bridge.count['imu_published'],1)
                     bridge.report();self.assertIn('disabled_imu_only',(pathlib.Path(directory)/'bridge_status.json').read_text())
@@ -59,7 +100,7 @@ class LiveTopicTests(unittest.TestCase):
         from sensor_msgs.msg import NavSatFix,Imu
         from nav_msgs.msg import Odometry
         from gnss_bridge import GNSSBridge
-        previous=os.environ.get('SLAM_RUN_DIR');rclpy.init()
+        previous=os.environ.get('SLAM_RUN_DIR');rclpy.init(args=isolated_ros_args())
         with tempfile.TemporaryDirectory() as directory:
             os.environ['SLAM_RUN_DIR']=directory
             bridge=GNSSBridge(parameter_overrides=[Parameter('apply_imu_bias',value=False),Parameter('min_alignment_points',value=6),Parameter('min_alignment_baseline_m',value=10.)])

@@ -85,6 +85,7 @@ def main():
     if not args.no_rviz:commands['rviz']=['python3','-u',str(ROOT/'scripts/launch_rviz.py')]
     if not args.live:
         player=['ros2','bag','play',str(bag),'--clock','--start-offset',str(args.start_offset),'--delay','8','--rate',str(args.rate),'--read-ahead-queue-size','1000']
+        player+=['--qos-profile-overrides-path',str(ROOT/'config/replay_qos.yaml')]
         if args.duration:player+=['--playback-duration',str(args.duration)]
         if args.input=='raw':player+=['--topics','/imu/data']+([] if args.no_gnss else [gnss_topic])+[f'/point_cloud_hasco{i}' for i in range(1,5)]
         commands['player']=player
@@ -159,6 +160,19 @@ def main():
     finally:
         if not args.leave_running or status['failed'] or status['interrupted']:stop_children()
         for sig,handler in handlers.items():signal.signal(sig,handler)
+        # Audit complete replay only; partial/live runs have no metadata total.
+        bridge_status=run/'bridge_status.json'
+        if not args.live and args.start_offset==0 and args.duration==0 and not status['interrupted'] and not status['failed'] and bridge_status.exists():
+            try:
+                metadata=yaml.safe_load((bag/'metadata.yaml').read_text())['rosbag2_bagfile_information']
+                expected=next((t['message_count'] for t in metadata['topics_with_message_count'] if t['topic_metadata']['name']=='/imu/data'),0)
+                relayed=json.loads(bridge_status.read_text())['counts'].get('imu_published',0)
+                if expected:
+                    status['imu_relay']={'expected':expected,'published':relayed,'fraction':relayed/expected,'ok':relayed>=.99*expected}
+                    if relayed<.99*expected:print(f'IMU_RELAY_WARNING: {relayed}/{expected} samples; map quality requires review',flush=True)
+            except (OSError,ValueError,KeyError,yaml.YAMLError) as exc:
+                status['imu_relay']={'ok':False,'audit_error':str(exc)}
+                print('IMU_RELAY_WARNING: audit unavailable: '+str(exc),flush=True)
         (run/'run_status.json').write_text(json.dumps(status,indent=2))
         for log in logs:log.close()
     print('RUN_COMPLETE',json.dumps(status),flush=True)

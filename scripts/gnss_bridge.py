@@ -5,7 +5,7 @@ from collections import Counter,deque
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import qos_profile_sensor_data
+from rclpy.qos import qos_profile_sensor_data,QoSProfile,ReliabilityPolicy
 from sensor_msgs.msg import Imu,NavSatFix
 from nav_msgs.msg import Odometry
 from gnss_core import LocalENU,fix_covariance,fit_alignment
@@ -22,6 +22,7 @@ class GNSSBridge(Node):
         self.p=lambda name:self.get_parameter(name).value
         self.output=pathlib.Path(os.environ.get('SLAM_RUN_DIR',str(ROOT/'runs/live_bridge')));self.output.mkdir(parents=True,exist_ok=True)
         self.count=Counter();self.local=None;self.rotation=None;self.translation=None;self.metrics={};self.last_fix_ns=-1
+        self.last_imu_ns=None;self.max_imu_gap_ns=0
         self.odometry=deque(maxlen=3000);self.pending=deque(maxlen=1000);self.pairs=deque(maxlen=1000)
         self.gyro_bias=np.zeros(3);self.accel_bias=np.zeros(3)
         if self.p('apply_imu_bias'):
@@ -31,8 +32,11 @@ class GNSSBridge(Node):
             config=json.loads(pathlib.Path(self.p('georeference_file')).read_text());self.local=LocalENU(*config['reference_wgs84']);self.rotation=np.eye(3);self.rotation[:2,:2]=config['map_to_enu_R_xy'];self.translation=np.r_[-np.array(config['map_to_enu_translation_xy'])@self.rotation[:2,:2].T,-config['map_to_enu_z_offset']];self.metrics={'mode':'fixed'}
         elif self.p('alignment_mode')!='online':raise ValueError('alignment_mode must be online or fixed')
         self.gps_pub=self.create_publisher(Odometry,self.p('gnss_output_topic'),100) if self.p('gnss_enabled') else None
-        self.imu_pub=self.create_publisher(Imu,self.p('imu_output_topic'),qos_profile_sensor_data)
-        self.input_subscriptions=[self.create_subscription(Imu,self.p('imu_topic'),self.imu,qos_profile_sensor_data)]
+        # GNSS alignment and file I/O can briefly delay this executor. The
+        # sensor-data default depth=5 loses IMU samples during replay bursts.
+        imu_qos=QoSProfile(depth=2000,reliability=ReliabilityPolicy.BEST_EFFORT)
+        self.imu_pub=self.create_publisher(Imu,self.p('imu_output_topic'),imu_qos)
+        self.input_subscriptions=[self.create_subscription(Imu,self.p('imu_topic'),self.imu,imu_qos)]
         if self.p('gnss_enabled'):self.input_subscriptions += [self.create_subscription(NavSatFix,self.p('gnss_topic'),self.gnss,qos_profile_sensor_data),self.create_subscription(Odometry,self.p('odom_topic'),self.odom,qos_profile_sensor_data)]
         self.csv_file=(self.output/'gnss_constraints.csv').open('w',newline='');self.csv_writer=csv.writer(self.csv_file);self.csv_writer.writerow(['stamp_s','x','y','z']);self.csv_file.flush()
         self.create_timer(2,self.report)
@@ -40,6 +44,9 @@ class GNSSBridge(Node):
         self.get_logger().info(f"GNSS enabled={self.p('gnss_enabled')}; IMU input={self.p('imu_topic')}; measurement stamps preserved")
 
     def imu(self,m):
+        ns=stamp_ns(m)
+        if self.last_imu_ns is not None:self.max_imu_gap_ns=max(self.max_imu_gap_ns,ns-self.last_imu_ns)
+        self.last_imu_ns=ns
         for k,b in zip(['x','y','z'],self.gyro_bias):setattr(m.angular_velocity,k,getattr(m.angular_velocity,k)-b)
         for k,b in zip(['x','y','z'],self.accel_bias):setattr(m.linear_acceleration,k,getattr(m.linear_acceleration,k)-b)
         self.imu_pub.publish(m);self.count['imu_published']+=1
@@ -95,7 +102,7 @@ class GNSSBridge(Node):
             for j in range(3):result.pose.covariance[i*6+j]=float(cov[i,j])
         for i in [21,28,35]:result.pose.covariance[i]=1e6
         self.gps_pub.publish(result);self.count['gnss_published']+=1
-        self.csv_writer.writerow([stamp_ns(m)*1e-9,*position.tolist()]);self.csv_file.flush()
+        self.csv_writer.writerow([stamp_ns(m)*1e-9,*position.tolist()])
 
     def save_alignment(self):
         r=self.rotation;t=self.translation
@@ -103,8 +110,10 @@ class GNSSBridge(Node):
         (self.output/'gnss_alignment.json').write_text(json.dumps(result,indent=2))
 
     def report(self):
+        self.csv_file.flush()
         result={'state':'ready' if self.rotation is not None else 'waiting_for_motion_and_matching_odometry','input_topic':self.p('gnss_topic'),'counts':dict(self.count),'alignment_pairs':len(self.pairs),'pending_fixes':len(self.pending),'alignment':self.metrics}
         if not self.p('gnss_enabled'):result['state']='disabled_imu_only'
+        result.update(imu_last_stamp_s=self.last_imu_ns*1e-9 if self.last_imu_ns is not None else None,imu_max_received_gap_ms=self.max_imu_gap_ns*1e-6)
         (self.output/'bridge_status.json').write_text(json.dumps(result,indent=2))
 
     def destroy_node(self):

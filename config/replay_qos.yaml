@@ -1,0 +1,6 @@
+# Buffer high-rate IMU bursts across bag file/chunk boundaries.
+/imu/data:
+  history: keep_last
+  depth: 4000
+  reliability: best_effort
+  durability: volatile

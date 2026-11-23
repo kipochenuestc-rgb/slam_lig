@@ -133,3 +133,50 @@ ROS 通信使用独立 domain 50，Linux 本机地址 `10.255.255.254` 和共享
 WSLg 底层共享内存缺陷仍可能复发，菜单保留和启动检查是防护而不是永久修复。若单独修复图形服务仍失败，先保存所有 WSL 工作，再考虑完整重启 WSL。
 
 依赖 ROS Jazzy 的 C++/消息/TF/PCL/OpenCV 开发包、GTSAM 4.2、Python numpy/scipy/matplotlib 和 RViz。本机已安装；`build.sh` 会实际验证 C++ 依赖是否齐全。`cmake/gtsam` 仅修正本机导出包引用不存在的测试库及库文件名问题，不包含 GTSAM 本体。
+
+
+## 局部 RGB 点云与 3DGS
+
+`scripts/export_rgb_scene.py` 从原始 bag 导出四相机图像和带 RGB 的测量点，使用本次建图最终的 `map/transformations.pcd` 插值位姿。相机使用图像帧头时间；每个雷达点使用本路帧头加原始逐点微秒时间，先运动补偿到 map，再投影到对应相机取色。同像素按深度筛选遮挡点，最后进行 RGB 体素平均。
+
+标定读取 bag 同级 `calibration` 中的 `results/rig_cam0_with_lidars_paired_1203.json`、`config/aprilgrid_session.json` 和 `config/imu_mount.json`。当前文件状态为 `candidate_not_deployed`，并非经过本流程重新标定。雷达与物理相机对应关系为：1→2、2→0、3→1、4→3。外参组合后以 1 号雷达原点、IMU 轴向为 SLAM 参考，启动时检查配对外参矩阵方向的一致性。
+
+`/Data_Cam_Global` 的 NV12 消息宽 1600、高 1920 是存储布局；解码后为 1600×1280，四格各 800×640。左上/右上/左下/右下分别为相机 3/1/2/0。使用该分辨率对应的 KB4 内参与畸变系数，训练前去畸变成 640×512 的 PINHOLE 图像，不能直接套用 1920×1536 的原始 K。
+
+在 WSL Ubuntu-24.04 内导出局部场景（输出目录须不存在）：
+
+```bash
+bash /mnt/d/slam/slam_lig/scripts/ros_env.sh python3 \
+  /mnt/d/slam/slam_lig/scripts/export_rgb_scene.py \
+  --bag /mnt/d/slam/session_20261124_100923_5cbed2/bag \
+  --run /mnt/d/slam/slam_lig/runs/new_data_20261124_gnss_buffered \
+  --output /mnt/d/slam/slam_lig/runs/rgb_gs_local \
+  --start 275 --duration 20 --sample-period 0.5
+```
+
+`rgb_map.ply` 保留原 SLAM map 坐标；`points.npz`、`cameras.json`、`transforms.json`、COLMAP 文本初始化使用减去 `scene.json.scene_origin_map_m` 的局部坐标。`cameras.json` 为 OpenCV 轴向，`transforms.json` 已转换为 OpenGL 轴向。COLMAP 文本不包含特征观测轨迹，使用 SLAM 位姿，不代表经过图像束调整。`projection/` 为首组四路投影检查图。
+
+`scripts/train_local_gs.py` 使用 gsplat 优化各向异性高斯的位置、旋转、尺度、不透明度和一阶球谐颜色。按整组同步时刻留出验证图像，优化 MSE 与位置/尺度正则项，选择验证 PSNR 最好的迭代；没有改善或损失非有限时不导出成功模型。没有启用高斯增密和图像位姿优化，目前用于局部验证。
+
+本机已验证环境：RTX 5060 Laptop（8GB）、PyTorch 2.8.0+cu128、gsplat 1.5.3、CUDA 编译器 12.8。隔离 venv 在 `/home/kipoc/slam_gs_env`，复用已有 bevseg 环境中的 PyTorch，gsplat 单独安装，不改动原环境。重建方式：
+
+```bash
+/home/kipoc/miniconda3/envs/bevseg/bin/python -m venv --system-site-packages /home/kipoc/slam_gs_env
+/home/kipoc/slam_gs_env/bin/python -m pip install gsplat==1.5.3
+bash /mnt/d/slam/slam_lig/scripts/gs_env.sh \
+  /mnt/d/slam/slam_lig/scripts/train_local_gs.py \
+  --scene /mnt/d/slam/slam_lig/runs/rgb_gs_local \
+  --output /mnt/d/slam/slam_lig/runs/gs_local_v3 \
+  --steps 8000 --max-points 160000
+```
+
+`gs_env.sh` 可通过 `SLAM_GS_CUDA_HOME`、`SLAM_GS_PYTHON`、`TORCH_CUDA_ARCH_LIST` 指定其他机器的环境。首次调用会编译 gsplat CUDA 扩展；本机约 7 分钟。导出 `gaussians.ply` 为标准高斯属性布局（一阶球谐补零到三阶字段），`model.pt` 为参数检查点，`renders/comparison_*.jpg` 左侧原图、右侧渲染，`flythrough.gif` 为相机插值路径演示，`training_report.json` 记录验证结果。
+
+候选外参、SLAM 位姿误差、行人和天空都会影响效果；此版本未做动态物体掩码、天空建模或图像束调整。验证图像不参与梯度优化，但初始化 RGB 点来自完整导出片段；验证集还用于挑选迭代，其指标不是独立测试精度。数据、模型和预览均写入被 Git 忽略的 `runs/`，只提交源码。
+
+几何检查：
+
+```bash
+PYTHONPATH=/mnt/d/slam/slam_lig/scripts python3 -m unittest discover \
+  -s /mnt/d/slam/slam_lig/tests -p test_rgb_core.py
+```

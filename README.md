@@ -327,3 +327,17 @@ PYTHONPATH=/mnt/d/slam/slam_lig/scripts bash /mnt/d/slam/slam_lig/scripts/gs_env
 
 
 本次纯图像训练已完成 20,000 次迭代，导出 374,845 个高斯点；`runs/image_only_comparison_final/` 是最终同图像对比与动态预览。完整验证图像 PSNR 为旧版 20.93、新版 21.50 dB；SSIM 为旧版 0.747、新版 0.733。建筑轮廓更完整，检查视角中原先显著的天空漂浮黑块消失，但近处路面仍有拖影/拉伸，树木、遮挡与未观测区域仍不理想。新路线已实现并实跑，不将指标提升宣称为画质问题全部解决。
+
+
+### 使用库自带的标准导出
+
+`export_standard_gs.py` 直接调用 `gsplat.export_splats`，不使用自写 PLY 字段打包：
+
+```bash
+bash /mnt/d/slam/slam_lig/scripts/gs_env.sh \
+  /mnt/d/slam/slam_lig/scripts/export_standard_gs.py \
+  --checkpoint /mnt/d/slam/slam_lig/runs/image_only_gs_v1/best.pt \
+  --output /mnt/d/slam/slam_lig/runs/image_only_standard
+```
+
+`model_standard.ply` 是默认标准 PLY，保留全部三阶球谐系数；`model.splat` 是 32 字节/高斯的常用查看格式，省略高阶球谐并量化颜色与旋转，约 12 MB。本次输出含 374,845 个高斯，不修改几何、坐标轴或训练参数。导出器回读检查位置、log 尺度、旋转、opacity、SH 字段和 SPLAT 记录数，并记录散列。格式转换不修复模型伪影；测试时先用空白查看器场景导入一个文件，避免与旧模型叠加。

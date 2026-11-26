@@ -1,0 +1,17 @@
+{
+  "points": 1297109,
+  "outliers": 25005,
+  "finite_coordinates": true,
+  "voxel_m": 0.075,
+  "unique_voxels": true,
+  "partition_verified": true,
+  "known_person_returns": {
+    "raw": 14,
+    "clean": 0
+  },
+  "same_region_point_count": {
+    "previous": 67934,
+    "new": 372269
+  },
+  "masks": 780
+}

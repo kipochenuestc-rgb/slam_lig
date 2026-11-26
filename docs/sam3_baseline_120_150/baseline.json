@@ -1,0 +1,29 @@
+{
+  "version": "sam3-dense-road-120-150-v1",
+  "additional_pose_optimization": false,
+  "start_offset_s": 120,
+  "duration_s": 30,
+  "voxel_m": 0.075,
+  "inputs": {
+    "point_cloud": {
+      "path": "/mnt/d/slam/slam_lig/runs/sam3_dense_road_120_150/sam3_clean_rgb.ply",
+      "sha256": "3986bbf9ea6869734fee1ef1c07b7869a8baf8e6ca23c95a8b2c54c5062594fa",
+      "bytes": 19456816
+    },
+    "trajectory": {
+      "path": "/mnt/d/slam/slam_lig/runs/ndt_ekf_full_v3/ekf_trajectory.csv",
+      "sha256": "71ad9cb53de76b7715ea5a9aba12e7f15ec147ae1bfbbdb26660e0c18ee28994",
+      "bytes": 8772897
+    },
+    "checkpoint": {
+      "path": "/mnt/d/slam/sam3/weights/sam3.pt",
+      "sha256": "9999e2341ceef5e136daa386eecb55cb414446a00ac2b55eb2dfd2f7c3cf8c9e",
+      "bytes": 3450062241
+    },
+    "calibration": {
+      "path": "/mnt/d/slam/session_20261124_100923_5cbed2/calibration/results/rig_cam0_with_lidars_paired_1203.json",
+      "sha256": "aae0ccbbaeac072ec74ed387bb9d575a85c28661fdf86014a04d8360fed6e024",
+      "bytes": 20335
+    }
+  }
+}

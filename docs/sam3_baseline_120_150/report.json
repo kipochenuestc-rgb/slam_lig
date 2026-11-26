@@ -1,0 +1,30 @@
+{
+  "start_offset_s": 120,
+  "duration_s": 30,
+  "scans": 772,
+  "points_before": 1452773,
+  "points_after": 1297109,
+  "voxel_m": 0.075,
+  "outlier_filter": {
+    "method": "20-NN mean distance <= global mean + 2 std",
+    "threshold_m": 0.27810508757829666,
+    "before": 1322114,
+    "after": 1297109,
+    "removed": 25005,
+    "nearest_neighbor_p50_before": 0.05043976753950119,
+    "nearest_neighbor_p50_after": 0.05004788935184479
+  },
+  "observations": {
+    "kept": 20969391,
+    "sky": 10138,
+    "person": 292745,
+    "vehicle": 654752
+  },
+  "low_air_near_trajectory_before_after": [
+    71850,
+    9668
+  ],
+  "trajectory": "/mnt/d/slam/slam_lig/runs/ndt_ekf_full_v3/ekf_trajectory.csv",
+  "calibration_status": "candidate_not_deployed",
+  "mask_overlap_after": 0
+}

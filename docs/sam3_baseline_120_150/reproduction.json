@@ -1,0 +1,8 @@
+{
+  "reproduction": "独立输出目录重跑原始 30 秒雷达，最终 PLY 与确认版逐字节一致",
+  "sha256": "3986bbf9ea6869734fee1ef1c07b7869a8baf8e6ca23c95a8b2c54c5062594fa",
+  "points": 1297109,
+  "repository_unittest": {"run": 48, "skipped": 16, "result": "passed"},
+  "windows_entry_tests": {"run": 8, "result": "passed"},
+  "segmentation": "重建复用了原 SAM3 掩码，掩码生成入口已导入和语法检查，未重新推理 780 张照片"
+}

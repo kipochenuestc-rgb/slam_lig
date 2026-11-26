@@ -341,3 +341,7 @@ bash /mnt/d/slam/slam_lig/scripts/gs_env.sh \
 ```
 
 `model_standard.ply` 是默认标准 PLY，保留全部三阶球谐系数；`model.splat` 是 32 字节/高斯的常用查看格式，省略高阶球谐并量化颜色与旋转，约 12 MB。本次输出含 374,845 个高斯，不修改几何、坐标轴或训练参数。导出器回读检查位置、log 尺度、旋转、opacity、SH 字段和 SPLAT 记录数，并记录散列。格式转换不修复模型伪影；测试时先用空白查看器场景导入一个文件，避免与旧模型叠加。
+
+## 当前 SAM 3 固定基线
+
+固定第 120～150 秒的 SAM 3 稠密点云重建，使用原 NDT/GNSS/EKF 轨迹、7.5 厘米体素和 20 近邻统计离群点过滤。入口位于 scripts/sam3_baseline，运行方法、输入依赖、结果签名和已知边界见 [固定基线说明](docs/sam3_baseline_120_150/README.md)。

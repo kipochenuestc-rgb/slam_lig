@@ -83,10 +83,10 @@ IMU 桥接收发队列为 2000，回放发布队列在 `config/replay_qos.yaml` 
 | 目录 | 内容 |
 |---|---|
 | `src/LIO-SAM` | 当前实际编译的 C++ 核心、ROS 消息与服务、许可证、上游版本号 |
-| `scripts` | 运行控制、在线拼接、在线滤波、GNSS/IMU 桥接、结果检查与查看 |
+| `scripts` | `run_slam.py` 校验模式、编排 ROS 命令并协调进程生命周期与运行审计，其他脚本负责录制、拼接、滤波、GNSS/IMU 桥接和结果查看 |
 | `config` | 传感器外参、LIO 参数、GNSS 初始化、RViz 和通信配置 |
 | `launch` | 四个 LIO-SAM 节点与固定坐标变换 |
-| `tests` | 拼接匹配、坐标与逐点时间、滤波正确性测试 |
+| `tests` | `test_run_slam.py` 检查建图模式、回放话题和参数覆盖，其他用例覆盖拼接、滤波、GNSS、会话控制和查看器 |
 | `runs` | 每次独立的日志、质量统计、轨迹与地图 |
 | `cmake/gtsam` | 本机 GTSAM 4.2 包的 CMake 导出兼容配置 |
 

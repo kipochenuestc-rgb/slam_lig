@@ -99,7 +99,7 @@ class FrameMatcher:
                     self.buffers[sensor].popleft()
         return result
 
-def fuse_messages(messages, transforms):
+def fuse_messages(messages, transforms, output_frame=OUTPUT_FRAME):
     from sensor_msgs.msg import PointCloud2, PointField
     reference_ns = stamp_ns(messages[0])
     parts, counts, offsets, invalid = [], [], [], 0
@@ -140,7 +140,7 @@ def fuse_messages(messages, transforms):
         points[cursor:cursor+len(part)]=part
         cursor+=len(part)
     points=points[np.argsort(points['time'],kind='stable')]
-    message=PointCloud2();message.header.stamp=messages[0].header.stamp;message.header.frame_id=OUTPUT_FRAME
+    message=PointCloud2();message.header.stamp=messages[0].header.stamp;message.header.frame_id=output_frame
     message.height=1;message.width=len(points);message.is_bigendian=False;message.is_dense=True;message.point_step=32;message.row_step=32*len(points);message.data=points.tobytes()
     message.fields=[PointField(name=k,offset=offset,datatype=datatype,count=1) for k,offset,datatype in [('x',0,7),('y',4,7),('z',8,7),('intensity',12,7),('ring',16,4),('time',20,7),('lidar_id',24,2),('source_time_us',28,6)]]
     if len(message.data) != message.height*message.row_step:

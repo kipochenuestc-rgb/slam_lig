@@ -1,3 +1,4 @@
+import {mappingApi} from './mapping.mjs';
 import http from 'node:http';
 import {readFile,access} from 'node:fs/promises';
 import path from 'node:path';
@@ -24,13 +25,14 @@ function openBrowser(){
 }
 if(args.includes('--check')){
   const ready=await dataReady();
-  if(ready){const metadata=JSON.parse(await readFile(path.join(root,'data/metadata.json'),'utf8'));const points=await readFile(path.join(root,'data/points.bin'));if(points.length!==metadata.pointCount*16)throw Error('Point data length mismatch');}
+  if(ready){const metadata=JSON.parse(await readFile(path.join(root,'data/metadata.json'),'utf8'));const points=await readFile(path.join(root,'data/points.bin'));if(points.length!==metadata.pointCount*16)throw Error('Point data length mismatch');if(metadata.colorFile){const colors=await readFile(path.join(root,'data',metadata.colorFile));if(colors.length!==metadata.pointCount*3)throw Error('RGB data length mismatch');}}
   console.log(JSON.stringify({service:'slam_lig_web_viewer',node:process.version,dataReady:ready}));
   process.exit(0);
 }
 const server=http.createServer(async(req,res)=>{
   try{
     const url=new URL(req.url,`http://localhost:${port}`);
+    if(url.pathname.startsWith('/api/mapping')){await mappingApi(req,res,url,port);return;}
     if(url.pathname==='/api/health'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'}).end(JSON.stringify({service:'slam_lig_web_viewer',dataReady:await dataReady()}));return;}
     if(url.pathname==='/api/view-state'){
       if(req.method==='POST'){let body='';for await(const chunk of req){body+=chunk;if(body.length>3000)throw Error('Too large');}viewState={...JSON.parse(body),time:new Date().toISOString()};res.writeHead(204).end();}

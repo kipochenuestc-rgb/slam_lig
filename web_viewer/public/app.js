@@ -1,7 +1,7 @@
 const $ = id => document.getElementById(id);
 const canvas = $('cloud-canvas'), ctx = canvas.getContext('2d');
 const stage = $('map-stage'), raster = document.createElement('canvas');
-const state = { meta: null, points: null, tracks: null, mode: 'local', map: null, layer: null, bounds: null, cx: 0, cy: 0, scale: 1, width: 0, height: 0, visible: 0, drag: null };
+const state = { meta: null, points: null, colors: null, tracks: null, mode: 'local', map: null, layer: null, bounds: null, cx: 0, cy: 0, scale: 1, width: 0, height: 0, visible: 0, drag: null };
 const controls = ['cloud-toggle', 'path-toggle', 'gnss-toggle', 'opacity', 'point-size', 'z-min', 'z-max'];
 function reportView(status, details={}) { fetch('/api/view-state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status,...details})}).catch(()=>{}); }
 function toast(message) { $('toast').textContent = message; $('toast').classList.add('visible'); clearTimeout(toast.timer); toast.timer = setTimeout(() => $('toast').classList.remove('visible'), 3800); }
@@ -25,7 +25,8 @@ function paint(context, project, size) {
   if ($('cloud-toggle').checked) for (let i = 0; i < points.length; i += 4) {
     const z = points[i+2]; if (z < low || z > high) continue; count++;
     const [x,y] = project(points[i], points[i+1]); if (x < -5 || y < -5 || x > context.canvas.width + 5 || y > context.canvas.height + 5) continue;
-    context.fillStyle = color(z); context.fillRect(x-size/2,y-size/2,size,size);
+    const c = (i / 4) * 3;
+    context.fillStyle = state.colors ? 'rgb(' + state.colors[c] + ',' + state.colors[c+1] + ',' + state.colors[c+2] + ')' : color(z); context.fillRect(x-size/2,y-size/2,size,size);
   }
   context.globalAlpha = 1;
   if ($('gnss-toggle').checked) pathOn(context, state.tracks.gnss, project, '#9aaec4', true);
@@ -80,8 +81,16 @@ $('connect-form').onsubmit=async e=>{e.preventDefault();const key=$('amap-key').
 $('download').onclick=()=>{if(!state.meta){toast('数据还未加载完成');return;}const a=document.createElement('a');a.href='./data/pointcloud_2d.geojson';a.download='pointcloud_2d_wgs84.geojson';a.click();toast('正在导出 WGS‑84 二维点云数据');};
 async function start(){
   try{const [mr,pr,tr]=await Promise.all([fetch('./data/metadata.json'),fetch('./data/points.bin'),fetch('./data/tracks.json')]);if(!mr.ok||!pr.ok||!tr.ok)throw Error('数据文件读取失败');state.meta=await mr.json();state.points=new Float32Array(await pr.arrayBuffer());state.tracks=await tr.json();if(state.points.length!==state.meta.pointCount*4)throw Error('点云文件长度校验失败');
+    if(state.meta.colorFile){
+      const response=await fetch('./data/'+state.meta.colorFile);
+      if(!response.ok)throw Error('RGB颜色文件读取失败');
+      state.colors=new Uint8Array(await response.arrayBuffer());
+      if(state.colors.length!==state.meta.pointCount*3)throw Error('RGB颜色长度校验失败');
+      document.querySelector('.height-legend').style.display='none';
+      document.querySelector('.cloud-swatch').parentElement.querySelector('small').textContent='原始相机 RGB';
+    }
     $('dataset-state').textContent=state.meta.isPreview?'预览 · GNSS 约束构建中':(state.meta.datasetLabel||'GNSS 约束建图已完成');$('distance').textContent=`${state.meta.distanceM.toFixed(0)} m`;$('duration').textContent=`${Math.floor(state.meta.durationS/60)} 分 ${Math.round(state.meta.durationS%60)} 秒`;$('factor-count').textContent=state.meta.gnssFactors?`${state.meta.gnssFactors} 个`:'等待结果';$('z-min').value=Math.floor(state.meta.zRange[0]);$('z-max').value=Math.ceil(state.meta.zRange[1]);$('legend-low').textContent=`${state.meta.zColorRange[0].toFixed(1)}`;$('legend-high').textContent=`${state.meta.zColorRange[1].toFixed(1)}`;$('quality-note').textContent=state.meta.qualityNote;$('pipeline-label').textContent=state.meta.datasetLabel||'GNSS 约束建图';$('pipeline-detail').textContent=state.meta.fusedFrames?`${state.meta.fusedFrames.toLocaleString('zh-CN')} 帧 · 滤波前 ${(state.meta.inputPoints/1e8).toFixed(2)} 亿点 · 滤波后 ${(state.meta.filteredPoints/1e8).toFixed(2)} 亿点`:'';$('filter-detail').textContent=state.meta.filterDescription||'';$('empty-state').style.display='none';resize();fit();$('amap-key').value=sessionStorage.getItem('atlas-amap-key')||'';$('amap-code').value=sessionStorage.getItem('atlas-amap-code')||'';
-    try{const response=await fetch('/api/amap-config');if(response.ok){const config=await response.json();if(config.enabled){$('view-status').textContent='正在连接高德地图…';await connectMap(config.key,null,config.serviceHost);}}}catch{/* Local mode remains usable without configured map credentials. */}
+    try{if(new URLSearchParams(location.search).get('view')==='local')return;const response=await fetch('/api/amap-config');if(response.ok){const config=await response.json();if(config.enabled){$('view-status').textContent='正在连接高德地图…';await connectMap(config.key,null,config.serviceHost);}}}catch{/* Local mode remains usable without configured map credentials. */}
   }catch(error){$('empty-state').textContent=`加载失败：${error.message}`;$('dataset-state').textContent='数据未加载';}
 }
 new ResizeObserver(resize).observe(stage);start();

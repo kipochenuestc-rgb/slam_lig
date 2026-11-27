@@ -26,7 +26,7 @@
 
 ## WSL 命令
 
-只用雷达和 IMU 建图：给 `scripts/run_slam.py` 增加 `--no-gnss`。此时不订阅 GNSS、不发布 GNSS 约束，回放原始数据时也不播放 GNSS 话题；IMU 偏置补偿保持启用。新数据可分别通过 `--calibration-dir`、`--params-file`、`--imu-bias-file` 指定随包外参、LIO 参数和本次静止段偏置，避免套用旧数据参数。
+原始 bag 离线建图默认使用 11 月 24 日包。网页预览与回放按传感器消息的 frame_id 解析该包的 /tf_static；四路雷达拼接、IMU 安装位置和 GNSS 杆臂使用同一套 TF。运行目录的 bag_tf.json 保存本次变换。缺失或歧义的必需帧会阻止启动。仅使用雷达与 IMU 时可传 --no-gnss。--params-file 指定算法参数；如有本次数据独立测得的 IMU 偏置，可以通过 --imu-bias-file 显式指定。
 
 ```bash
 # 编译独立工作区 /home/kipoc/slam_lig_ws
@@ -69,7 +69,6 @@ bash /mnt/d/slam/slam_lig/scripts/open_map.sh /path/to/run
 bash /mnt/d/slam/slam_lig/scripts/ros_env.sh python3 /mnt/d/slam/slam_lig/scripts/run_slam.py \
   --mode replay --bag /mnt/d/slam/session_20261124_100923_5cbed2/bag \
   --start-offset 190 --no-gnss --no-imu-prediction \
-  --calibration-dir /mnt/d/slam/session_20261124_100923_5cbed2/calibration \
   --params-file /mnt/d/slam/slam_lig/config/profiles/session_20261124_params.yaml \
   --imu-bias-file /mnt/d/slam/slam_lig/config/profiles/session_20261124_imu_bias.json
 ```

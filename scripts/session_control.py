@@ -19,7 +19,10 @@ def all_processes():
 
 def is_mapper(info):
     command=info['command']
-    return bool(command) and pathlib.Path(command[0]).name=='lio_sam_mapOptimization' and str(ROOT/'config/params.yaml') in command
+    if not command or pathlib.Path(command[0]).name != 'lio_sam_mapOptimization':
+        return False
+    run = owned_run(info.get('run'))
+    return str(ROOT/'config/params.yaml') in command or bool(run and str(run/'params_from_tf.yaml') in command)
 
 def active_mapping():return [p for p in all_processes() if is_mapper(p)]
 

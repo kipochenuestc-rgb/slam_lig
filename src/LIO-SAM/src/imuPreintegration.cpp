@@ -518,7 +518,7 @@ public:
         auto odometry = nav_msgs::msg::Odometry();
         odometry.header.stamp = thisImu.header.stamp;
         odometry.header.frame_id = odometryFrame;
-        odometry.child_frame_id = "odom_imu";
+        odometry.child_frame_id = lidarFrame == "base_link" ? lidarFrame : "odom_imu";
 
         // transform imu pose to ldiar
         gtsam::Pose3 imuPose = gtsam::Pose3(currentState.quaternion(), currentState.position());

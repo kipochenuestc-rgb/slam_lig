@@ -3,6 +3,7 @@
 import bisect,csv,json,os,pathlib
 from collections import Counter,deque
 import numpy as np
+from scipy.spatial.transform import Rotation
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data,QoSProfile,ReliabilityPolicy
@@ -25,6 +26,16 @@ class GNSSBridge(Node):
         self.last_imu_ns=None;self.max_imu_gap_ns=0
         self.odometry=deque(maxlen=3000);self.pending=deque(maxlen=1000);self.pairs=deque(maxlen=1000)
         self.gyro_bias=np.zeros(3);self.accel_bias=np.zeros(3)
+        snapshot = self.declare_parameter('tf_snapshot','').value
+        rig = json.loads(pathlib.Path(snapshot).read_text()) if snapshot else {}
+        self.rig = rig.get('rows', [])
+        self.body_frame = rig.get('reference_frame', 'hasco1_lio')
+        self.arm = None
+        self.imu_attitudes = deque(maxlen=1000)
+        self.attitude_anchor = None
+        if self.rig and self.p('gnss_enabled'):
+            self.arm = np.asarray(self.rig[5]['pose'])[:3,3]
+            self.imu_from_body = Rotation.from_matrix(np.asarray(self.rig[4]['pose'])[:3,:3]).inv()
         if self.p('apply_imu_bias'):
             bias=json.loads(pathlib.Path(self.p('imu_bias_file')).read_text());self.gyro_bias=np.array(bias['gyro_bias_rad_s']);self.accel_bias=np.array(bias['accel_bias_m_s2'])
         if not self.p('gnss_enabled'):pass
@@ -44,15 +55,30 @@ class GNSSBridge(Node):
         self.get_logger().info(f"GNSS enabled={self.p('gnss_enabled')}; IMU input={self.p('imu_topic')}; measurement stamps preserved")
 
     def imu(self,m):
+        if self.rig and m.header.frame_id.strip('/') != self.rig[4]['frame']:
+            raise ValueError('IMU frame_id 与 bag TF 快照不符')
         ns=stamp_ns(m)
         if self.last_imu_ns is not None:self.max_imu_gap_ns=max(self.max_imu_gap_ns,ns-self.last_imu_ns)
         self.last_imu_ns=ns
+        if self.arm is not None and m.orientation_covariance[0] != -1:
+            q = m.orientation
+            quat = [q.x,q.y,q.z,q.w]
+            if np.isfinite(quat).all() and np.linalg.norm(quat)>1e-8:
+                self.imu_attitudes.append((ns,Rotation.from_quat(quat) * self.imu_from_body))
         for k,b in zip(['x','y','z'],self.gyro_bias):setattr(m.angular_velocity,k,getattr(m.angular_velocity,k)-b)
         for k,b in zip(['x','y','z'],self.accel_bias):setattr(m.linear_acceleration,k,getattr(m.linear_acceleration,k)-b)
         self.imu_pub.publish(m);self.count['imu_published']+=1
 
+    def imu_attitude_at(self, ns):
+        if not self.imu_attitudes:
+            return None
+        sample, attitude = min(self.imu_attitudes, key=lambda item: abs(item[0]-ns))
+        return attitude if abs(sample-ns)<=25_000_000 else None
+
     def gnss(self,m):
         if not self.p('gnss_enabled'):return
+        if self.rig and m.header.frame_id.strip('/') != self.rig[5]['frame']:
+            raise ValueError('GNSS frame_id 与 bag TF 快照不符')
         self.count['fix_received']+=1;ns=stamp_ns(m)
         if m.status.status<0 or not np.isfinite([m.longitude,m.latitude,m.altitude]).all() or not -180<=m.longitude<=180 or not -90<m.latitude<90:
             self.count['invalid_fix']+=1;return
@@ -62,41 +88,65 @@ class GNSSBridge(Node):
         self.last_fix_ns=ns
         if self.local is None:self.local=LocalENU(m.longitude,m.latitude,m.altitude)
         enu=self.local.convert(m.longitude,m.latitude,m.altitude)
-        if self.rotation is not None:self.publish_fix(m,enu,c);return
+        if self.rotation is not None and self.arm is None:self.publish_fix(m,enu,c);return
+        if self.rotation is not None and self.attitude_anchor and not self.pending:
+            anchor_ns, map_from_imu_world = self.attitude_anchor
+            attitude = self.imu_attitude_at(ns)
+            if attitude is not None and 0 <= ns-anchor_ns <= self.p('max_odom_gap_s')*1e9:
+                offset = (map_from_imu_world * attitude).apply(self.arm)
+                self.publish_fix(m,enu,c,offset)
+                return
         if len(self.pending)==self.pending.maxlen:self.count['alignment_queue_overflow']+=1
-        self.pending.append((ns,enu));self.align()
+        self.pending.append((ns,enu,m,c));self.align()
 
     def odom(self,m):
-        if self.rotation is not None:return
+        if self.rotation is not None and self.arm is None:return
         ns=stamp_ns(m);p=m.pose.pose.position;xyz=np.array([p.x,p.y,p.z])
         if not np.isfinite(xyz).all() or ns<=0:return
         if self.odometry and ns<=self.odometry[-1][0]:self.count['nonmonotonic_odometry']+=1;return
-        self.odometry.append((ns,xyz));self.align()
+        offset = np.zeros(3)
+        if self.arm is not None:
+            q = m.pose.pose.orientation
+            quat = np.array([q.x,q.y,q.z,q.w])
+            if not np.isfinite(quat).all() or np.linalg.norm(quat)<1e-8:
+                return
+            map_attitude = Rotation.from_quat(quat)
+            attitude = self.imu_attitude_at(ns)
+            if attitude is not None:
+                self.attitude_anchor = ns, map_attitude * attitude.inv()
+            offset = map_attitude.apply(self.arm)
+        self.odometry.append((ns,xyz,offset));self.align()
 
     def align(self):
-        if self.rotation is not None or len(self.odometry)<2:return
+        if len(self.odometry)<2:return
         times=[row[0] for row in self.odometry]
         while self.pending and self.pending[0][0]<=times[-1]:
-            ns,enu=self.pending.popleft();index=bisect.bisect_left(times,ns)
+            ns,enu,fix,cov=self.pending.popleft();index=bisect.bisect_left(times,ns)
             if index==0:
                 if ns!=times[0]:self.count['fix_before_odometry']+=1;continue
-                position=self.odometry[0][1]
+                _,position,offset=self.odometry[0]
             else:
-                ta,a=self.odometry[index-1];tb,b=self.odometry[index]
+                ta,a,arm_a=self.odometry[index-1];tb,b,arm_b=self.odometry[index]
                 if (tb-ta)*1e-9>self.p('max_odom_gap_s'):self.count['alignment_odom_gap']+=1;continue
-                position=a+(b-a)*((ns-ta)/(tb-ta))
-            self.pairs.append((ns,enu,position))
+                fraction=(ns-ta)/(tb-ta)
+                position=a+(b-a)*fraction
+                offset=arm_a+(arm_b-arm_a)*fraction
+            if self.rotation is not None:
+                self.publish_fix(fix,enu,cov,offset)
+                continue
+            self.pairs.append((ns,enu,position+offset))
             while self.pairs and (ns-self.pairs[0][0])*1e-9>self.p('alignment_window_s'):self.pairs.popleft()
+        if self.rotation is not None:return
         result=fit_alignment([p[1] for p in self.pairs],[p[2] for p in self.pairs],self.p('min_alignment_points'),self.p('min_alignment_baseline_m'),self.p('max_alignment_rmse_m'))
         if result is not None:
             self.rotation,self.translation,self.metrics=result;self.metrics['mode']='online';self.pending.clear();self.save_alignment()
             self.get_logger().info('GNSS alignment ready: '+json.dumps(self.metrics))
-            # Past alignment fixes are not published as stale factors. Only new
-            # incoming fixes publish immediately, ahead of delayed LIO callbacks.
+            # Only publish fixes received after initialization.
 
-    def publish_fix(self,m,enu,c):
+    def publish_fix(self,m,enu,c,offset=None):
         position=self.rotation@enu+self.translation;cov=self.rotation@c@self.rotation.T
-        result=Odometry();result.header.stamp=m.header.stamp;result.header.frame_id=self.p('map_frame');result.child_frame_id=m.header.frame_id or 'gnss_antenna'
+        if offset is not None:position=position-offset
+        result=Odometry();result.header.stamp=m.header.stamp;result.header.frame_id=self.p('map_frame');result.child_frame_id=self.body_frame if self.arm is not None else (m.header.frame_id or 'gnss_antenna')
         result.pose.pose.position.x=float(position[0]);result.pose.pose.position.y=float(position[1]);result.pose.pose.position.z=float(position[2]);result.pose.pose.orientation.w=1.
         for i in range(3):
             for j in range(3):result.pose.covariance[i*6+j]=float(cov[i,j])
@@ -106,7 +156,7 @@ class GNSSBridge(Node):
 
     def save_alignment(self):
         r=self.rotation;t=self.translation
-        result={'reference_wgs84':self.local.reference,'ecef_origin':self.local.origin.tolist(),'ecef_to_enu':self.local.rotation.tolist(),'enu_to_map_rotation':r.tolist(),'enu_to_map_translation':t.tolist(),'map_to_enu_R_xy':r[:2,:2].tolist(),'map_to_enu_translation_xy':(-t[:2]@r[:2,:2]).tolist(),'map_to_enu_z_offset':float(-t[2]),'alignment':self.metrics,'note':'Frozen causal alignment; antenna lever arm not compensated'}
+        result={'reference_wgs84':self.local.reference,'ecef_origin':self.local.origin.tolist(),'ecef_to_enu':self.local.rotation.tolist(),'enu_to_map_rotation':r.tolist(),'enu_to_map_translation':t.tolist(),'map_to_enu_R_xy':r[:2,:2].tolist(),'map_to_enu_translation_xy':(-t[:2]@r[:2,:2]).tolist(),'map_to_enu_z_offset':float(-t[2]),'alignment':self.metrics,'antenna_lever_arm_m':self.arm.tolist() if self.arm is not None else None}
         (self.output/'gnss_alignment.json').write_text(json.dumps(result,indent=2))
 
     def report(self):

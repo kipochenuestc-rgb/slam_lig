@@ -116,6 +116,8 @@ def load_mapping_config(args):
     if not gnss_topic:
         bridge = yaml.safe_load((ROOT / 'config/bridge.yaml').read_text())
         gnss_topic = bridge['/**']['ros__parameters']['gnss_topic']
+    if bag and bag.parent.name == 'session_20261124_100923_5cbed2' and not args.params_file:
+        args.params_file = ROOT / 'config/profiles/session_20261124_params.yaml'
     params_path = args.params_file or ROOT / 'config/params.yaml'
     lio_params = yaml.safe_load(params_path.read_text())
     return bag, gnss_topic, lio_params
@@ -156,7 +158,7 @@ def build_commands(args, bag, gnss_topic, lio_params, run):
     if args.imu_bias_file:
         commands['bridge'] += ['-p', 'imu_bias_file:=' + str(args.imu_bias_file)]
     if not args.no_rviz:
-        commands['rviz'] = ['python3', '-u', str(ROOT / 'scripts/launch_rviz.py')]
+        commands['rviz'] = ['python3', '-u', str(ROOT / 'scripts/launch_rviz.py'), '--repair-if-idle']
     if not args.live:
         player = [
             'ros2', 'bag', 'play', str(bag), '--clock', '--start-offset', str(args.start_offset),
@@ -391,12 +393,39 @@ def run_mapping(args, mode):
             flush=True,
         )
         return 2
-    close_saved_viewers()
     bag, gnss_topic, lio_params = load_mapping_config(args)
     run = ROOT / 'runs' / args.run
+    rig = None
+    if mode == 'replay' and args.input == 'raw':
+        from bag_tf import inspect_bag
+        rig = inspect_bag(bag, gnss_topic)
+        rows = rig['rows'][:5] if args.no_gnss else rig['rows']
+        invalid = [r['topic'] + ': ' + r['error'] for r in rows if r['error']]
+        if invalid:
+            raise ValueError('bag TF 校验失败：' + '；'.join(invalid))
+    close_saved_viewers()
     run.mkdir(exist_ok=False)
     environment = {**os.environ, 'SLAM_RUN_DIR': str(run)}
     commands = build_commands(args, bag, gnss_topic, lio_params, run)
+    if rig:
+        rows = rig['rows']
+        rig_path = run / 'bag_tf.json'
+        rig_path.write_text(json.dumps(rig, indent=2))
+        commands['fusion'] = ['python3', '-u', str(ROOT / 'scripts/fusion_node.py'),
+                              '--ros-args', '-p', 'tf_snapshot:=' + str(rig_path)]
+        imu = rows[4]['pose']
+        params = lio_params['/**']['ros__parameters']
+        params['extrinsicTrans'] = [imu[i][3] for i in range(3)]
+        rotation = [imu[i][j] for i in range(3) for j in range(3)]
+        params.update(lidarFrame=rig['reference_frame'], baselinkFrame=rig['reference_frame'],
+                      extrinsicRot=rotation, extrinsicRPY=[imu[j][i] for i in range(3) for j in range(3)])
+        tf_params = run / 'params_from_tf.yaml'
+        tf_params.write_text(yaml.safe_dump(lio_params))
+        commands['launch'] = [a for a in commands['launch'] if not a.startswith('params_file:=')]
+        commands['launch'].append('params_file:=' + str(tf_params))
+        commands['bridge'] += ['-p', 'tf_snapshot:=' + str(rig_path)]
+        if not args.imu_bias_file:
+            commands['bridge'] += ['-p', 'apply_imu_bias:=false']
     status = build_initial_status(args, mode, bag, gnss_topic, lio_params, run)
     processes = {}
     logs = []

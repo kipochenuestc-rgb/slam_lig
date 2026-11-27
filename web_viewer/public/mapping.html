@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>离线建图 · 巡迹</title><link rel="stylesheet" href="style.css"></head>
+<body class="mapping-page"><main>  <section id="mapping-panel" aria-labelledby="mapping-title">
+    <div class="mapping-heading"><div><h1 id="mapping-title">离线建图</h1><p>四路激光雷达 · IMU · GNSS</p></div><a href="./?view=local" class="button secondary">点云地图 →</a></div>
+<div class="mapping-workspace">
+    <section class="workspace-card mapping-columns" aria-labelledby="bag-title"><div>
+      <h2 id="bag-title"><label for="dir">输入 ROS 2 bag</label></h2><p>选择包含 metadata.yaml 的目录，或粘贴本机目录路径。</p>
+      <form id="browse"><input type="text" id="dir" required aria-label="bag 目录路径"><button class="button secondary">打开目录</button></form>
+      <button id="up" class="text-button">↑ 上一级</button><div id="folders"></div><p id="selection" role="status"></p>
+    </div><div class="mapping-task">
+      <div class="rate-control"><label for="rate">回放倍率 <output id="rate-value" for="rate">1×</output></label>
+      <input id="rate" type="range" min="0.5" max="4" step="0.25" value="1">
+      <div class="rate-limits"><span>0.5×</span><span>4×</span></div></div>
+      <label><input type="checkbox" id="rviz" checked> 在 RViz 实时显示建图</label>
+      <div class="mapping-actions"><button class="button primary" id="start" disabled>开始建图</button> <button class="button secondary" id="stop" disabled>停止建图</button> <button class="button secondary" id="save-map" disabled>保存地图…</button></div><p role="alert" id="error"></p>
+      <strong>任务状态</strong><pre id="status" aria-live="polite">正在读取…</pre>
+    </div></section>
+<section class="workspace-card rig-layout" aria-labelledby="rig-title">
+  <h2 id="rig-title">传感器输入</h2>
+  <p id="rig-context" role="status">正在读取bag TF…</p>
+  <div class="topic-scroll">
+    <table id="rig-table"><thead><tr><th>传感器 / Topic</th><th>frame_id</th><th>包内消息数</th></tr></thead><tbody></tbody></table>
+  </div>
+</section>
+<section class="workspace-card rig-section" aria-labelledby="pose-title">
+  <h2 id="pose-title">3D 外参</h2>
+  <div class="rig-views" aria-label="观察方向"><button data-view="iso">立体</button><button data-view="top">俯视</button><button data-view="front">前视</button><button data-view="side">侧视</button></div>
+    <canvas id="rig-canvas" aria-label="传感器安装位置与坐标轴，拖动旋转，滚轮缩放"></canvas>
+    <p>base_link · 车体参考坐标系，原点为 (0, 0, 0)。<b style="color:#ad4342">X 红</b> / <b style="color:#287a52">Y 绿</b> / <b style="color:#4161ae">Z 蓝</b></p>
+  <output id="rig-detail"></output><details><summary>TF 来源</summary><p id="rig-files"></p></details>
+</section>
+
+</div>
+  </section>
+</main>
+<dialog id="export-dialog" aria-labelledby="export-title"><form id="export-form">
+<button id="export-close" type="button" class="dialog-close" aria-label="关闭">×</button>
+<h2 id="export-title">保存地图</h2>
+<label>地图名称<input id="export-name" required maxlength="64" autocomplete="off"></label>
+<label>文件格式 <select id="export-format"><option value="autoware">Autoware 点云地图与配置</option><option value="pcd">本地坐标 PCD</option></select></label>
+<p id="export-files"></p><p id="export-dir"></p><output id="export-status" role="status"></output>
+<button id="export-submit" class="button primary">保存到本机</button></form></dialog><script type="module" src="mapping.js"></script></body></html>

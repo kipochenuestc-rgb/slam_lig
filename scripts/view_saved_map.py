@@ -20,8 +20,15 @@ pub=node.create_publisher(PointCloud2,'/lio_sam/mapping/map_global',qos)
 pathpub=node.create_publisher(Path,'/lio_sam/mapping/path',qos)
 cloud=PointCloud2();cloud.header.frame_id='map';cloud.height=1;cloud.width=len(a);cloud.point_step=16;cloud.row_step=len(a)*16;cloud.is_dense=True;cloud.data=a.tobytes();cloud.fields=[PointField(name=k,offset=i*4,datatype=7,count=1) for i,k in enumerate(['x','y','z','intensity'])]
 track=Path();track.header.frame_id='map'
-for row in csv.DictReader((root/'optimized_trajectory.csv').open()):
+trajectory = root/'optimized_trajectory.csv'
+if not trajectory.exists():trajectory=root/'trajectory.csv'
+for row in csv.DictReader(trajectory.open()) if trajectory.exists() else ():
     p=PoseStamped();p.header.frame_id='map';p.pose.position.x=float(row['x']);p.pose.position.y=float(row['y']);p.pose.position.z=float(row['z'])
+    if 'qw' in row:
+        q=p.pose.orientation
+        q.x,q.y,q.z,q.w=[float(row[k]) for k in ('qx','qy','qz','qw')]
+        track.poses.append(p)
+        continue
     r,pitch,y=[float(row[k])/2 for k in ['roll','pitch','yaw']];cr,sr,cp,sp,cy,sy=math.cos(r),math.sin(r),math.cos(pitch),math.sin(pitch),math.cos(y),math.sin(y)
     p.pose.orientation.x=sr*cp*cy-cr*sp*sy;p.pose.orientation.y=cr*sp*cy+sr*cp*sy;p.pose.orientation.z=cr*cp*sy-sr*sp*cy;p.pose.orientation.w=cr*cp*cy+sr*sp*sy;track.poses.append(p)
 def publish():

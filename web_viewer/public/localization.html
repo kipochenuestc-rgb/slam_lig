@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>定位回放 · ADToolBox</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font:14px "Microsoft YaHei",sans-serif;color:#173d33;background:#f3f6f4;height:100vh;display:flex;flex-direction:column}header{padding:14px 20px;background:white;border-bottom:1px solid #d0ddd7;display:grid;gap:10px}.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}input,button,select{font:inherit;padding:6px 9px;max-width:100%}button{cursor:pointer}input[type=text],input[type=range]{flex:1;min-width:120px}output{font-variant-numeric:tabular-nums}iframe{width:100%;border:0;flex:1;min-height:160px}#pos{font-weight:bold}#status{color:#735422}
+</style><link rel="stylesheet" href="/workspace.css"></head><body><header>
+<form class="row" id="bagForm"><label for="bag">ROS 2 bag</label><input type="text" id="bag" required placeholder="含 metadata.yaml 的 bag 目录"><button type="button" id="browse">选择目录</button><button>读取 bag</button></form>
+<div class="row"><label>GNSS topic <select id="topic"></select></label><label>Autoware 地图 <select id="maps"></select></label><button id="import">导入地图目录</button><label><input id="sat" type="checkbox">高德卫星底图</label></div>
+<form class="row" id="importForm" style="display:none"><label for="dir">地图目录</label><input type="text" id="dir" required><button>导入</button></form>
+<div class="row"><button id="play" disabled>播放</button><label for="time">bag 时间</label><input id="time" type="range" min="0" max="0" step="0.01" value="0" disabled><output id="stamp">0.00 s</output></div>
+<div class="row"><output id="pos">等待定位</output><span id="detail"></span><span id="status" role="status"></span></div>
+</header><iframe id="map" title="定位点云地图"></iframe>
+<script type="module" src="localization.js"></script></body></html>

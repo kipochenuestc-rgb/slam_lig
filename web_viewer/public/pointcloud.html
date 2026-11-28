@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ADToolBox · 3D 点云</title>
+  <link rel="stylesheet" href="/pointcloud.css">
+<link rel="stylesheet" href="/workspace.css"></head>
+<body>
+  <main id="pointcloud-app">
+    <header class="toolbar">
+      <div class="title"><strong>3D 点云</strong><span id="dataset-label">读取地图中…</span></div>
+      <label class="file-button">打开 PCD<input type="file" id="file" accept=".pcd"></label>
+      <nav class="views" aria-label="点云视角">
+        <button data-view="orbit" class="active">斜视</button>
+        <button data-view="top">顶视</button>
+        <button data-view="front">前视</button>
+        <button data-view="side">侧视</button>
+      </nav>
+      <label class="point-size">点大小 <input id="point-size" type="range" min="1" max="6" step="0.5" value="2"><output id="point-size-value">2 px</output></label>
+      <button id="reset-view">重置视角</button>
+    </header>
+    <section id="scene-wrap" aria-label="3D 点云查看器">
+      <canvas id="scene"></canvas>
+      <div class="info-panel"><strong id="point-count">准备载入点云…</strong><span id="source-frame">Z 向上 · 本地点云坐标</span></div>
+      <div id="loading">正在读取点云…</div>
+      <div class="grid-label"><i></i>地面网格　1 m × 1 m / 格</div>
+      <div class="scale-label"><span id="scale-line"></span><span>1 m</span></div>
+      <div class="controls-hint">左键旋转　·　中键平移　·　右键或滚轮缩放</div>
+    </section>
+  </main>
+  <script type="module" src="/pointcloud.js"></script>
+</body>
+</html>

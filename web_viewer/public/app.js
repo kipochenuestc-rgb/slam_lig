@@ -3,6 +3,39 @@ const canvas = $('cloud-canvas'), ctx = canvas.getContext('2d');
 const stage = $('map-stage'), raster = document.createElement('canvas');
 const state = { meta: null, points: null, colors: null, tracks: null, mode: 'local', map: null, layer: null, bounds: null, cx: 0, cy: 0, scale: 1, width: 0, height: 0, visible: 0, drag: null };
 const controls = ['cloud-toggle', 'path-toggle', 'gnss-toggle', 'opacity', 'point-size', 'z-min', 'z-max'];
+// The localization marker is separate from the cloud raster so scrubbing never repaints the cloud.
+let liveXYZ = null, liveDot = null, satelliteDot = null;
+if (new URLSearchParams(location.search).has('localization')) {
+  document.body.classList.add('localization-map');
+  liveDot = document.createElement('span');
+  liveDot.className = 'localization-dot';
+  liveDot.hidden = true;
+  stage.appendChild(liveDot);
+  window.addEventListener('message', e => {
+    if (e.origin !== location.origin || e.source !== parent || e.data?.type !== 'localization-position') return;
+    liveXYZ = e.data.xyz;
+    updatePosition();
+  });
+  parent.postMessage({type:'localization-ready'}, location.origin);
+}
+function updatePosition() {
+  if (!liveDot) return;
+  liveDot.hidden = !liveXYZ || !state.meta || state.mode !== 'local';
+  if (!liveDot.hidden) {
+    const [x,y] = worldToScreen(...liveXYZ);
+    liveDot.style.left = x+'px'; liveDot.style.top = y+'px';
+  }
+  if (!state.map) return;
+  if (!liveXYZ || state.mode !== 'amap') { satelliteDot?.hide(); return; }
+  // Use the same bounds as the projected point cloud for the overlay marker.
+  const [west,south,east,north] = state.meta.boundsENU;
+  const sw = state.bounds.getSouthWest(), ne = state.bounds.getNorthEast();
+  const lng = sw.lng+(ne.lng-sw.lng)*(liveXYZ[0]-west)/(east-west);
+  const lat = sw.lat+(ne.lat-sw.lat)*(liveXYZ[1]-south)/(north-south);
+  if (!satelliteDot) satelliteDot = new AMap.CircleMarker({map:state.map,center:[lng,lat],radius:7,
+      fillColor:'#e34c32',fillOpacity:1,strokeColor:'#fff',strokeWeight:2,zIndex:200});
+  satelliteDot.setCenter([lng,lat]); satelliteDot.show();
+}
 function reportView(status, details={}) { fetch('/api/view-state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status,...details})}).catch(()=>{}); }
 function toast(message) { $('toast').textContent = message; $('toast').classList.add('visible'); clearTimeout(toast.timer); toast.timer = setTimeout(() => $('toast').classList.remove('visible'), 3800); }
 function color(z) { const [lo, hi] = state.meta.zColorRange; const t = Math.max(0, Math.min(1, (z - lo) / (hi - lo || 1))); const a = t < .5 ? [75,154,181] : [117,195,168], b = t < .5 ? [117,195,168] : [229,215,138]; const f = t < .5 ? t * 2 : (t - .5) * 2; return `rgb(${a.map((v,i) => Math.round(v + (b[i] - v) * f)).join(',')})`; }
@@ -10,7 +43,7 @@ function worldToScreen(x, y) { return [state.width / 2 + (x - state.cx) * state.
 function screenToWorld(x, y) { return [state.cx + (x - state.width / 2) / state.scale, state.cy - (y - state.height / 2) / state.scale]; }
 function drawGrid() {
   const step = 10 ** Math.floor(Math.log10(90 / state.scale)); const spacing = step * state.scale;
-  ctx.strokeStyle = '#29433c'; ctx.lineWidth = .5; ctx.beginPath();
+  ctx.strokeStyle = '#b9c0c6'; ctx.lineWidth = .5; ctx.beginPath();
   const [sx, sy] = worldToScreen(0, 0);
   for (let x = ((sx % spacing) + spacing) % spacing; x < state.width; x += spacing) { ctx.moveTo(x,0); ctx.lineTo(x,state.height); }
   for (let y = ((sy % spacing) + spacing) % spacing; y < state.height; y += spacing) { ctx.moveTo(0,y); ctx.lineTo(state.width,y); } ctx.stroke();
@@ -37,11 +70,12 @@ function paint(context, project, size) {
   state.visible = count; $('point-count').textContent = count.toLocaleString('zh-CN');
 }
 function draw() {
+  updatePosition();
   if (!state.meta) return;
   $('opacity-value').textContent = `${$('opacity').value}%`; $('size-value').textContent = `${$('point-size').value} px`;
   if (Number($('z-min').value) > Number($('z-max').value)) { toast('最低高度不能高于最高高度'); return; }
   if (state.mode === 'amap') { renderRaster(); return; }
-  const dpr = window.devicePixelRatio || 1; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.fillStyle='#142b29'; ctx.fillRect(0,0,state.width,state.height);drawGrid();paint(ctx, worldToScreen, Number($('point-size').value));
+  const dpr = window.devicePixelRatio || 1; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.fillStyle='#eceef0'; ctx.fillRect(0,0,state.width,state.height);drawGrid();paint(ctx, worldToScreen, Number($('point-size').value));
   const meters = 10 ** Math.floor(Math.log10(75 / state.scale)); $('scale').querySelector('i').style.width=`${meters*state.scale}px`; $('scale').querySelector('span').textContent=`${meters} m`;
 }
 function renderRaster() {
@@ -90,7 +124,7 @@ async function start(){
       document.querySelector('.cloud-swatch').parentElement.querySelector('small').textContent='原始相机 RGB';
     }
     $('dataset-state').textContent=state.meta.isPreview?'预览 · GNSS 约束构建中':(state.meta.datasetLabel||'GNSS 约束建图已完成');$('distance').textContent=`${state.meta.distanceM.toFixed(0)} m`;$('duration').textContent=`${Math.floor(state.meta.durationS/60)} 分 ${Math.round(state.meta.durationS%60)} 秒`;$('factor-count').textContent=state.meta.gnssFactors?`${state.meta.gnssFactors} 个`:'等待结果';$('z-min').value=Math.floor(state.meta.zRange[0]);$('z-max').value=Math.ceil(state.meta.zRange[1]);$('legend-low').textContent=`${state.meta.zColorRange[0].toFixed(1)}`;$('legend-high').textContent=`${state.meta.zColorRange[1].toFixed(1)}`;$('quality-note').textContent=state.meta.qualityNote;$('pipeline-label').textContent=state.meta.datasetLabel||'GNSS 约束建图';$('pipeline-detail').textContent=state.meta.fusedFrames?`${state.meta.fusedFrames.toLocaleString('zh-CN')} 帧 · 滤波前 ${(state.meta.inputPoints/1e8).toFixed(2)} 亿点 · 滤波后 ${(state.meta.filteredPoints/1e8).toFixed(2)} 亿点`:'';$('filter-detail').textContent=state.meta.filterDescription||'';$('empty-state').style.display='none';resize();fit();$('amap-key').value=sessionStorage.getItem('atlas-amap-key')||'';$('amap-code').value=sessionStorage.getItem('atlas-amap-code')||'';
-    try{if(new URLSearchParams(location.search).get('view')==='local')return;const response=await fetch('/api/amap-config');if(response.ok){const config=await response.json();if(config.enabled){$('view-status').textContent='正在连接高德地图…';await connectMap(config.key,null,config.serviceHost);}}}catch{/* Local mode remains usable without configured map credentials. */}
+    try{if(new URLSearchParams(location.search).get('view')==='local')return;const response=await fetch('/api/amap-config');if(response.ok){const config=await response.json();if(!config.enabled && liveDot) toast('未配置高德地图，当前使用本地点云');if(config.enabled){$('view-status').textContent='正在连接高德地图…';await connectMap(config.key,null,config.serviceHost);}}}catch{/* Local mode remains usable without configured map credentials. */}
   }catch(error){$('empty-state').textContent=`加载失败：${error.message}`;$('dataset-state').textContent='数据未加载';}
 }
 new ResizeObserver(resize).observe(stage);start();

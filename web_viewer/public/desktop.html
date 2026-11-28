@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ADToolBox</title><link rel="icon" href="/toolbox.ico"><style>
+*{box-sizing:border-box}body{margin:0;background:#f7f8fa;color:#183b31;font:15px "Microsoft YaHei",sans-serif}
+#studio{height:100vh;display:flex;flex-direction:column}.bar{display:grid;grid-template-columns:auto 1fr;align-items:center;column-gap:24px;row-gap:12px;padding:10px 30px;background:#123a31;color:#fff}
+.brand{display:flex;align-items:center;gap:7px;font-size:19px;font-weight:bold}.bar nav{display:flex;gap:4px;flex-wrap:wrap}.bar button,.bar select,.bar nav a{font:inherit;border:0;border-radius:5px;padding:7px 12px}.bar nav a{color:#deede7;text-decoration:none;white-space:nowrap}.bar nav a:hover,.bar nav a:focus-visible{background:#245347}
+.bar button{cursor:pointer;background:transparent;color:#deede7;white-space:nowrap}.bar button[aria-pressed=true]{background:#e6f5ec;color:#174b38}
+.map-picker{grid-column:1/-1;width:100%;display:grid;grid-template-columns:minmax(280px,1fr) 112px 190px minmax(200px,auto);align-items:center;gap:14px}
+.map-picker label{display:flex;align-items:center;gap:12px;min-width:0;white-space:nowrap}.bar select{width:100%;min-width:0;max-width:none;height:44px;margin:0;background:#fff;color:#173c32}
+.map-picker button{height:44px}.map-picker span{line-height:1.35;overflow-wrap:anywhere}
+.load-map{background:#e6f5ec!important;color:#174b38!important}.load-map:disabled{opacity:.55;cursor:default}
+.directory-picker{display:grid;grid-template-columns:auto minmax(220px,1fr) auto auto minmax(220px,1.2fr);align-items:center;gap:10px;padding:12px 30px;background:#eef5f1;border-bottom:1px solid #dce8e2}
+.directory-picker input{width:100%;min-width:0;padding:10px;border:1px solid #aabcb5;border-radius:5px;font:inherit}.directory-picker button{padding:10px 14px;border:0;border-radius:5px;background:#176d59;color:#fff;font:inherit;cursor:pointer;white-space:nowrap}.directory-picker .cancel{background:#e2e9e6;color:#294b41}.directory-picker small{color:#536760;line-height:1.4}
+iframe{flex:1;width:100%;border:0;background:white;min-height:0}.notice{padding:10px 20px;margin:0;background:#fff2cc}
+@media(max-width:900px){.map-picker{grid-template-columns:minmax(0,1fr) 190px}.map-picker label{grid-column:1/-1}.map-picker .load-map{grid-column:1;justify-self:end;width:132px}.map-picker button:not(.load-map){grid-column:2}.map-picker span{grid-column:1/-1}.directory-picker{grid-template-columns:auto minmax(0,1fr) auto auto}.directory-picker small{grid-column:1/-1}}
+@media(max-width:620px){.bar{padding:10px 14px;column-gap:14px}.map-picker{grid-template-columns:1fr 1fr;gap:8px}.map-picker label{grid-column:1/-1;display:grid;gap:5px}.map-picker .load-map,.map-picker button:not(.load-map){grid-column:auto;justify-self:stretch;width:auto}.map-picker span{grid-column:1/-1}.directory-picker{grid-template-columns:1fr 1fr;padding:12px 14px}.directory-picker label,.directory-picker input,.directory-picker small{grid-column:1/-1}}
+</style><link rel="stylesheet" href="/workspace.css"></head><body><div id="studio">
+<header class="bar"><span class="brand"><img src="/toolbox.ico" width="24" height="24" alt=""> ADToolBox</span><nav aria-label="工作区">
+<a-button type="text" @click="goMapping" :aria-pressed="page==='mapping'"><radar-chart-outlined></radar-chart-outlined> 离线建图</a-button>
+<a-button type="text" @click="goAtlas(false)" :aria-pressed="page==='atlas'"><environment-outlined></environment-outlined> 高德投影</a-button>
+<a-button type="text" @click="goPointcloud" :aria-pressed="page==='pointcloud'"><dot-chart-outlined></dot-chart-outlined> 点云视图</a-button>
+<a-button type="text" @click="page='localization'; notice=''; localizationOpened=true" :aria-pressed="page==='localization'"><aim-outlined></aim-outlined> 定位</a-button>
+<a href="https://tools.tier4.jp/vector_map_builder_ll2/" @click="openVectorEditor"><export-outlined></export-outlined> 矢量地图编辑</a></nav></header>
+<main class="studio-content">
+<div v-if="page==='atlas' || page==='pointcloud'" class="map-picker"><label>选择地图<select v-model="selected"><option v-for="item in datasets" :value="item.id" :key="item.id">{{item.label}}</option></select></label><button class="load-map" @click="loadSelected" :disabled="!selected || loaded===selected">载入地图</button><button v-if="page==='atlas'" @click="browseMap">打开地图文件夹…</button><span v-if="loaded && page==='atlas'">显示中：{{labelFor(loaded)}}</span></div>
+<div v-if="page==='atlas' && showDirectoryInput" class="directory-picker"><label for="map-directory">地图目录</label><input id="map-directory" v-model="folderPath" @keydown.enter.prevent="importMapFolder()" placeholder="D:\maps\autoware_map"><button @click="importMapFolder()">导入并载入</button><button class="cancel" @click="cancelDirectoryInput()">取消</button><small>选择包含 pointcloud_map.pcd 和 map_projector_info.yaml 的 Autoware 地图文件夹。</small></div>
+<p v-if="notice" role="status" class="notice">{{notice}}</p>
+<iframe ref="mapping" v-show="page==='mapping'" title="离线建图" src="/mapping.html" @load="wireMapping"></iframe>
+<iframe v-if="atlasUrl" v-show="page==='atlas'" title="高德点云投影" :src="atlasUrl" @load="wireAtlas"></iframe>
+<iframe v-if="pointcloudUrl" v-show="page==='pointcloud'" title="3D 点云视图" :src="pointcloudUrl"></iframe>
+<iframe v-if="localizationOpened" v-show="page==='localization'" title="定位回放" src="/localization.html"></iframe>
+</main></div><script src="/vendor/studio.bundle.js"></script></body></html>

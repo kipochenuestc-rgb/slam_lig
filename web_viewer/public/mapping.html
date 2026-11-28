@@ -1,7 +1,7 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>离线建图 · 巡迹</title><link rel="stylesheet" href="style.css"></head>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>离线建图 · ADToolBox</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="/workspace.css"></head>
 <body class="mapping-page"><main>  <section id="mapping-panel" aria-labelledby="mapping-title">
-    <div class="mapping-heading"><div><h1 id="mapping-title">离线建图</h1><p>四路激光雷达 · IMU · GNSS</p></div><a href="./?view=local" class="button secondary">点云地图 →</a></div>
+    <div class="mapping-heading flex flex-wrap items-center gap-3"><div><h1 id="mapping-title">离线建图</h1><p>四路激光雷达 · IMU · GNSS</p></div><a href="./?view=local" class="button secondary">点云地图 →</a><a class="button secondary standalone-editor" href="https://tools.tier4.jp/vector_map_builder_ll2/">矢量地图编辑 ↗</a></div>
 <div class="mapping-workspace">
     <section class="workspace-card mapping-columns" aria-labelledby="bag-title"><div>
       <h2 id="bag-title"><label for="dir">输入 ROS 2 bag</label></h2><p>选择包含 metadata.yaml 的目录，或粘贴本机目录路径。</p>
@@ -24,8 +24,9 @@
 </section>
 <section class="workspace-card rig-section" aria-labelledby="pose-title">
   <h2 id="pose-title">3D 外参</h2>
-  <div class="rig-views" aria-label="观察方向"><button data-view="iso">立体</button><button data-view="top">俯视</button><button data-view="front">前视</button><button data-view="side">侧视</button></div>
-    <canvas id="rig-canvas" aria-label="传感器安装位置与坐标轴，拖动旋转，滚轮缩放"></canvas>
+  <div class="rig-views flex flex-wrap gap-1" aria-label="观察方向"><button data-view="iso" aria-pressed="true">立体</button><button data-view="top">俯视</button><button data-view="front">前视</button><button data-view="side">侧视</button></div>
+    <canvas id="rig-canvas" aria-label="传感器安装位置与坐标轴，左键拖动旋转，右键拖动平移，滚轮缩放"></canvas>
+    <p>左键拖动旋转 · 右键拖动平移 · 滚轮缩放</p>
     <p>base_link · 车体参考坐标系，原点为 (0, 0, 0)。<b style="color:#ad4342">X 红</b> / <b style="color:#287a52">Y 绿</b> / <b style="color:#4161ae">Z 蓝</b></p>
   <output id="rig-detail"></output><details><summary>TF 来源</summary><p id="rig-files"></p></details>
 </section>
@@ -39,4 +40,4 @@
 <label>地图名称<input id="export-name" required maxlength="64" autocomplete="off"></label>
 <label>文件格式 <select id="export-format"><option value="autoware">Autoware 点云地图与配置</option><option value="pcd">本地坐标 PCD</option></select></label>
 <p id="export-files"></p><p id="export-dir"></p><output id="export-status" role="status"></output>
-<button id="export-submit" class="button primary">保存到本机</button></form></dialog><script type="module" src="mapping.js"></script></body></html>
+<button id="export-submit" class="button primary">保存到本机</button></form></dialog><script type="module" src="mapping.js"></script><script>if (window.self !== window.top) document.querySelector(".standalone-editor").hidden = true;</script></body></html>

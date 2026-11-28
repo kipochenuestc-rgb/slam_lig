@@ -4,6 +4,15 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs --open",
-    "check": "node server.mjs --check"
+    "check": "node server.mjs --check",
+    "build:ui": "node build-ui.mjs"
+  },
+  "dependencies": {
+    "ant-design-vue": "4.2.6",
+    "vue": "3.5.46"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12",
+    "tailwindcss": "3.4.17"
   }
 }

@@ -79,7 +79,10 @@ function show(job) {
   const progress = job.frames == null ? '等待里程计数据…' : '已收到 '+job.frames+' 帧里程计数据';
   const detail = job.state === 'stopping' ? '正在停止回放并保存当前地图…' : running ? progress : job.message;
   el('status').textContent = job.state === 'idle' ? '尚未开始建图' :
-    [detail,job.rvizStatus,job.bag && '输入：'+job.bag,job.map || job.runDir].filter(Boolean).join('\n');
+    [detail, job.rvizStatus,
+      job.bag && '输入 bag：'+job.bag,
+      job.runDir && '输出文件夹：'+job.runDir,
+      job.map && '地图文件：'+job.map].filter(Boolean).join('\n');
   update();
 }
 

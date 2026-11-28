@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ADToolBox</title><link rel="icon" href="/toolbox.ico"><style>
+<title>ADToolBox</title><link rel="icon" type="image/svg+xml" href="/adtoolbox.svg"><style>
 *{box-sizing:border-box}body{margin:0;background:#f7f8fa;color:#183b31;font:15px "Microsoft YaHei",sans-serif}
 #studio{height:100vh;display:flex;flex-direction:column}.bar{display:grid;grid-template-columns:auto 1fr;align-items:center;column-gap:24px;row-gap:12px;padding:10px 30px;background:#123a31;color:#fff}
 .brand{display:flex;align-items:center;gap:7px;font-size:19px;font-weight:bold}.bar nav{display:flex;gap:4px;flex-wrap:wrap}.bar button,.bar select,.bar nav a{font:inherit;border:0;border-radius:5px;padding:7px 12px}.bar nav a{color:#deede7;text-decoration:none;white-space:nowrap}.bar nav a:hover,.bar nav a:focus-visible{background:#245347}
@@ -15,7 +15,7 @@ iframe{flex:1;width:100%;border:0;background:white;min-height:0}.notice{padding:
 @media(max-width:900px){.map-picker{grid-template-columns:minmax(0,1fr) 190px}.map-picker label{grid-column:1/-1}.map-picker .load-map{grid-column:1;justify-self:end;width:132px}.map-picker button:not(.load-map){grid-column:2}.map-picker span{grid-column:1/-1}.directory-picker{grid-template-columns:auto minmax(0,1fr) auto auto}.directory-picker small{grid-column:1/-1}}
 @media(max-width:620px){.bar{padding:10px 14px;column-gap:14px}.map-picker{grid-template-columns:1fr 1fr;gap:8px}.map-picker label{grid-column:1/-1;display:grid;gap:5px}.map-picker .load-map,.map-picker button:not(.load-map){grid-column:auto;justify-self:stretch;width:auto}.map-picker span{grid-column:1/-1}.directory-picker{grid-template-columns:1fr 1fr;padding:12px 14px}.directory-picker label,.directory-picker input,.directory-picker small{grid-column:1/-1}}
 </style><link rel="stylesheet" href="/workspace.css"></head><body><div id="studio">
-<header class="bar"><span class="brand"><img src="/toolbox.ico" width="24" height="24" alt=""> ADToolBox</span><nav aria-label="工作区">
+<header class="bar"><span class="brand"><img src="/adtoolbox.svg" width="24" height="24" alt=""> ADToolBox</span><nav aria-label="工作区">
 <a-button type="text" @click="goMapping" :aria-pressed="page==='mapping'"><radar-chart-outlined></radar-chart-outlined> 离线建图</a-button>
 <a-button type="text" @click="goAtlas(false)" :aria-pressed="page==='atlas'"><environment-outlined></environment-outlined> 高德投影</a-button>
 <a-button type="text" @click="goPointcloud" :aria-pressed="page==='pointcloud'"><dot-chart-outlined></dot-chart-outlined> 点云视图</a-button>

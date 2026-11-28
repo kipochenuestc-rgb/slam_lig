@@ -2,6 +2,7 @@ from pathlib import Path
 import argparse
 import webbrowser
 import socket
+import sys
 import threading
 import time
 
@@ -14,10 +15,13 @@ def main():
     parser.add_argument("--port", type=int, default=0)
     parser.add_argument("--web", action="store_true", help="仅启动 Web 服务")
     args = parser.parse_args()
+    if sys.platform == "win32" and not args.web:
+        import ctypes
+        ctypes.OleDLL("shell32").SetCurrentProcessExplicitAppUserModelID("ADToolBox.Desktop")
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", args.port))
         url = f"http://127.0.0.1:{sock.getsockname()[1]}/"
-        server = uvicorn.Server(uvicorn.Config(app, access_log=False))
+        server = uvicorn.Server(uvicorn.Config(app, access_log=False, use_colors=False))
         print(url, flush=True)
         if args.web:
             server.run(sockets=[sock])

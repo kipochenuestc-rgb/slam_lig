@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f1f2f3"><script>if(new URLSearchParams(location.search).get('tool')==='mapping') location.replace('mapping.html');</script><title>ADToolBox · 点云地图</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="/workspace.css"></head>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f1f2f3"><script>if(new URLSearchParams(location.search).get('tool')==='mapping') location.replace('mapping.html');</script><title>ADToolBox · 点云地图</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="/workspace.css"><link rel="icon" type="image/svg+xml" href="/adtoolbox.svg"></head>
 <body>
 <aside class="sidebar">
-  <a class="brand" href="./"><img src="/toolbox.ico" width="28" height="28" alt=""><span>ADToolBox</span></a>
+  <a class="brand" href="./"><img src="/adtoolbox.svg" width="28" height="28" alt=""><span>ADToolBox</span></a>
   <div class="workspace-label">空间数据工作台</div><div class="nav-active"><span>▦</span> 点云地图 <span class="nav-dot"></span></div>
   <section class="session"><div class="eyebrow">当前采集任务</div><h2>道路巡检 · 01</h2><p>2026 年 11 月 16 日</p><div class="session-tag"><i></i><span id="dataset-state">正在读取数据</span></div><dl><div><dt>雷达</dt><dd>HASCO 01–04</dd></div><div><dt>建图</dt><dd>LIO-SAM + GNSS</dd></div><div><dt>投影</dt><dd>二维 XY 平面</dd></div></dl></section>
   <section class="layers"><div class="section-title">图层 <span>LAYERS</span></div><label><span class="layer-swatch cloud-swatch"></span><span>二维点云<small>按高度着色</small></span><input id="cloud-toggle" type="checkbox" checked></label><label><span class="layer-swatch path-swatch"></span><span>融合轨迹<small>雷达 + IMU + GNSS</small></span><input id="path-toggle" type="checkbox" checked></label><label><span class="layer-swatch gnss-swatch"></span><span>GNSS 定位轨迹<small>同源约束数据</small></span><input id="gnss-toggle" type="checkbox"></label></section>
